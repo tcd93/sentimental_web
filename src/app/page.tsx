@@ -94,6 +94,12 @@ const SentimentList: React.FC<SentimentListProps> = // Update type usage
     );
 };
 
+// Define the possible types for the state setters that might be cleared
+type DataSetter = 
+    React.Dispatch<React.SetStateAction<TimeseriesDataPoint[]>> | 
+    React.Dispatch<React.SetStateAction<DistributionDataPoint[]>> | 
+    React.Dispatch<React.SetStateAction<SentimentData[]>>; // Add list data type if needed
+
 export default function Home() {
   // State for lists
   const [negativeData, setNegativeData] = useState<SentimentData[]>([]);
@@ -130,20 +136,21 @@ export default function Home() {
     return date.toISOString().split('T')[0]; // Default to today
   });
 
-  // Update fetchData generic type to include distribution and add clearPreviousDataTarget param
+  // Update fetchData generic type to include distribution and use the specific union type
   const fetchData = useCallback(async <T,>(
     url: string,
     setData: React.Dispatch<React.SetStateAction<T>>,
     setLoading: React.Dispatch<React.SetStateAction<boolean>>,
     setError: React.Dispatch<React.SetStateAction<string | null>>,
-    dataType: 'keywords' | 'sentiment' | 'timeseries' | 'distribution', 
-    // Revert to any for now to avoid complexity with different array types
-    clearPreviousDataTarget?: React.Dispatch<React.SetStateAction<any>> 
+    dataType: 'keywords' | 'sentiment' | 'timeseries' | 'distribution',
+    // Use the defined union type for the setter function
+    clearPreviousDataTarget?: DataSetter 
   ) => {
     setLoading(true);
     setError(null);
     // Clear previous data if specified
-    if (clearPreviousDataTarget) clearPreviousDataTarget([]); 
+    // TypeScript should correctly infer the type when calling with []
+    if (clearPreviousDataTarget) clearPreviousDataTarget([]);
     try {
       const response = await fetch(url);
       if (!response.ok) {
