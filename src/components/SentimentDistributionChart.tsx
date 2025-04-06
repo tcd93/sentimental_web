@@ -18,9 +18,18 @@ interface SentimentDistributionDataPoint {
   count: number;
 }
 
+// Re-define PeriodAverages here or import from page.tsx if structured for sharing
+interface PeriodAverages {
+    avg_pos: number | null;
+    avg_neg: number | null;
+    avg_mix: number | null;
+    avg_neutral: number | null;
+}
+
 interface SentimentDistributionChartProps {
   data: SentimentDistributionDataPoint[];
   keyword: string;
+  periodAverages: PeriodAverages | null; // <-- Add prop for averages
 }
 
 // Define colors for each sentiment category
@@ -35,7 +44,7 @@ const SENTIMENT_COLORS: { [key: string]: string } = {
 // Define fixed order for legend and sorting
 const SENTIMENT_ORDER = ['POSITIVE', 'NEGATIVE', 'NEUTRAL', 'MIXED'];
 
-const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({ data, keyword }) => {
+const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({ data, keyword, periodAverages }) => {
 
   if (!data || data.length === 0) {
     // You might want a different message or a placeholder visual here
@@ -55,18 +64,32 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   // Calculate total for percentage tooltip/label (use sortedData)
   const total = sortedData.reduce((sum, entry) => sum + entry.count, 0);
 
-  // Custom tooltip formatter with more specific types
+  // Custom tooltip formatter
   const renderCustomTooltip = (props: TooltipProps<ValueType, NameType>) => {
     const { active, payload } = props;
     if (active && payload && payload.length) {
-      // Assuming the payload structure based on Recharts Pie data
       const entryPayload = payload[0].payload as SentimentDistributionDataPoint;
       const percentage = total > 0 ? ((entryPayload.count / total) * 100).toFixed(1) : 0;
+      
+      // Get the corresponding average score
+      let avgScore: number | null | undefined = undefined;
+      const sentimentUpper = entryPayload.sentiment.toUpperCase();
+      if (periodAverages) {
+          if (sentimentUpper === 'POSITIVE') avgScore = periodAverages.avg_pos;
+          else if (sentimentUpper === 'NEGATIVE') avgScore = periodAverages.avg_neg;
+          else if (sentimentUpper === 'MIXED') avgScore = periodAverages.avg_mix;
+          else if (sentimentUpper === 'NEUTRAL') avgScore = periodAverages.avg_neutral;
+      }
+
       return (
         <div className="bg-gray-900/80 backdrop-blur-sm text-gray-200 p-2 rounded shadow-lg border border-gray-700 text-sm">
-          <p className="font-semibold" style={{ color: SENTIMENT_COLORS[entryPayload.sentiment.toUpperCase()] || SENTIMENT_COLORS.UNKNOWN }}>{entryPayload.sentiment}</p>
+          <p className="font-semibold" style={{ color: SENTIMENT_COLORS[sentimentUpper] || SENTIMENT_COLORS.UNKNOWN }}>{entryPayload.sentiment}</p>
           <p>{`Count: ${entryPayload.count}`}</p>
           <p>{`Percent: ${percentage}%`}</p>
+          {/* Display average score if available */}
+          {avgScore !== null && avgScore !== undefined && (
+              <p>{`Avg Score: ${avgScore.toFixed(4)}`}</p>
+          )}
         </div>
       );
     }

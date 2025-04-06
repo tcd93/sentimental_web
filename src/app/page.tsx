@@ -41,6 +41,22 @@ interface SentimentListProps {
     onKeywordClick: (keyword: string) => void; // Add this prop
 }
 
+// Interface for Overall Period Averages (matches SentimentSummary from API)
+interface PeriodAverages {
+    keyword: string; // Keep keyword for potential future use
+    avg_pos: number | null;
+    avg_neg: number | null;
+    avg_mix: number | null;
+    avg_neutral: number | null;
+    count: number;
+}
+
+// Define the possible types for the state setters that might be cleared
+type DataSetter = 
+    React.Dispatch<React.SetStateAction<TimeseriesDataPoint[]>> | 
+    React.Dispatch<React.SetStateAction<DistributionDataPoint[]>> | 
+    React.Dispatch<React.SetStateAction<SentimentData[]>>; // Add list data type if needed
+
 // Reusable component for displaying a list of games
 const SentimentList: React.FC<SentimentListProps> = // Update type usage
   ({ title, data, loading, error, metric, colorClass, onKeywordClick }) => { // Destructure new prop
@@ -94,12 +110,6 @@ const SentimentList: React.FC<SentimentListProps> = // Update type usage
     );
 };
 
-// Define the possible types for the state setters that might be cleared
-type DataSetter = 
-    React.Dispatch<React.SetStateAction<TimeseriesDataPoint[]>> | 
-    React.Dispatch<React.SetStateAction<DistributionDataPoint[]>> | 
-    React.Dispatch<React.SetStateAction<SentimentData[]>>; // Add list data type if needed
-
 export default function Home() {
   // State for lists
   const [negativeData, setNegativeData] = useState<SentimentData[]>([]);
@@ -124,6 +134,11 @@ export default function Home() {
   const [distributionData, setDistributionData] = useState<DistributionDataPoint[]>([]);
   const [distributionLoading, setDistributionLoading] = useState<boolean>(false);
   const [distributionError, setDistributionError] = useState<string | null>(null);
+
+  // State for Overall Period Averages (single object or null)
+  const [selectedKeywordPeriodAverages, setSelectedKeywordPeriodAverages] = useState<PeriodAverages | null>(null);
+  // State to temporarily hold the array result from the API
+  const [periodAveragesApiResult, setPeriodAveragesApiResult] = useState<PeriodAverages[]>([]); 
 
   // State for Date Range
   const [startDate, setStartDate] = useState<string>(() => {
@@ -200,12 +215,15 @@ export default function Home() {
   // Add startDate and endDate to dependency array
   }, [fetchData, startDate, endDate]);
 
-  // Effect to fetch chart and distribution data WHEN selectedKeyword, startDate, or endDate changes
+  // Effect to fetch chart, distribution, and period averages array data
   useEffect(() => {
-    // Clear both chart states when effect runs before fetching
+    // Clear relevant states
     setChartData([]);
     setDistributionData([]);
-    // Set loading states immediately
+    setPeriodAveragesApiResult([]); 
+    setSelectedKeywordPeriodAverages(null); 
+    
+    // Set loading states (only for charts being displayed)
     if (selectedKeyword && startDate && endDate) {
       setChartLoading(true);
       setDistributionLoading(true); 
@@ -215,39 +233,44 @@ export default function Home() {
     }
 
     if (selectedKeyword && startDate && endDate) {
-        // Construct Base URL parts
-        const baseParams = `?keyword=${encodeURIComponent(selectedKeyword)}&startDate=${startDate}&endDate=${endDate}`;
-        const timeseriesUrl = `/api/sentiment/timeseries${baseParams}`;
-        const distributionUrl = `/api/sentiment/distribution${baseParams}`;
+        const baseParams = `keyword=${encodeURIComponent(selectedKeyword)}&startDate=${startDate}&endDate=${endDate}`;
+        const timeseriesUrl = `/api/sentiment/timeseries?${baseParams}`;
+        const distributionUrl = `/api/sentiment/distribution?${baseParams}`;
+        // Fetch into the temporary array state
+        const periodAveragesUrl = `/api/sentiment?${baseParams}&limit=1`; 
 
-        // Fetch Timeseries Data
         fetchData<TimeseriesDataPoint[]>(
-            timeseriesUrl,
-            setChartData,         // State setter
-            setChartLoading,      // Loading setter
-            setChartError,        // Error setter
-            'timeseries',         // Data type hint
-            undefined             // Don't need to clear here, handled above
+            timeseriesUrl, setChartData, setChartLoading, setChartError, 'timeseries'
         );
-
-        // Fetch Distribution Data
         fetchData<DistributionDataPoint[]>(
-            distributionUrl,
-            setDistributionData,    // State setter
-            setDistributionLoading, // Loading setter
-            setDistributionError,   // Error setter
-            'distribution',       // Data type hint
-            undefined             // Don't need to clear here, handled above
+            distributionUrl, setDistributionData, setDistributionLoading, setDistributionError, 'distribution'
+        );
+        // Fetch data into the temporary array state (pass dummy/null for loading/error setters)
+        fetchData<PeriodAverages[]>(
+            periodAveragesUrl, 
+            setPeriodAveragesApiResult, 
+            () => {}, // No-op for loading setter
+            () => {}, // No-op for error setter
+            'sentiment' 
         );
 
     } else {
-      // Clear errors if no keyword/date selected
+      // Clear errors
       const errorMsg = selectedKeyword && (!startDate || !endDate) ? "Please select both a start and end date." : null;
       setChartError(errorMsg);
       setDistributionError(errorMsg); 
     }
-  // Dependencies: Include all state setters used in fetchData if it relies on them 
   }, [selectedKeyword, startDate, endDate, fetchData]);
+
+  // New Effect: Update single period average object when the API array result changes
+  useEffect(() => {
+      if (periodAveragesApiResult && periodAveragesApiResult.length > 0) {
+          setSelectedKeywordPeriodAverages(periodAveragesApiResult[0]);
+      } else {
+          // Ensure it's cleared if the API returns an empty array or undefined
+          setSelectedKeywordPeriodAverages(null);
+      }
+  }, [periodAveragesApiResult]); // Run whenever the temporary array updates
 
   // Effect to set default keyword AFTER positive list loads (if none selected yet)
   useEffect(() => {
@@ -409,7 +432,12 @@ export default function Home() {
                 </div>
              )}
              {!distributionLoading && !distributionError && selectedKeyword && startDate && endDate && distributionData.length > 0 && (
-               <SentimentDistributionChart data={distributionData} keyword={selectedKeyword} />
+               <SentimentDistributionChart 
+                  data={distributionData} 
+                  keyword={selectedKeyword} 
+                  // Pass down the period averages object
+                  periodAverages={selectedKeywordPeriodAverages} 
+                />
              )}
              {/* Placeholder/Message when no distribution data to show */}
              {(!selectedKeyword || !startDate || !endDate || (!distributionLoading && !distributionError && distributionData.length === 0)) && !distributionLoading && (
