@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import SentimentChart from '@/components/SentimentChart'; // Import the new chart component
 import { KeywordSelector } from '@/components/KeywordSelector'; // Import the keyword selector
+import { Loader2 } from 'lucide-react'; // <-- Import Loader2 icon
 
 // Define an interface for the data structure returned by the API
 interface SentimentData {
@@ -26,9 +27,30 @@ interface TimeseriesDataPoint {
 const SentimentList: React.FC<{ title: string; data: SentimentData[]; loading: boolean; error: string | null; metric: 'avg_pos' | 'avg_neg'; colorClass: string; }> = 
   ({ title, data, loading, error, metric, colorClass }) => {
     
-    if (loading) return <p className="text-center text-gray-400 py-4">Loading {title.toLowerCase()}...</p>;
-    if (error) return <p className="text-center text-red-500 py-4">Error loading {title.toLowerCase()}: {error}</p>;
-    if (!data || data.length === 0) return <p className="text-center text-gray-500 py-4">No data available for {title.toLowerCase()}.</p>;
+    // Replace text loading with a skeleton placeholder
+    if (loading) return (
+        <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full animate-pulse">
+             {/* Optional: Add internal faint lines */}
+             {/* <div className="h-4 bg-gray-700 rounded w-1/3 mb-4"></div> */}
+             {/* <div className="space-y-3 mt-4">
+                <div className="h-10 bg-gray-700 rounded"></div>
+                <div className="h-10 bg-gray-700 rounded"></div>
+                <div className="h-10 bg-gray-700 rounded"></div>
+             </div> */} 
+        </div>
+    );
+    if (error) return (
+        // Also style error state similarly for consistency
+        <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full flex items-center justify-center text-center text-red-500">
+             Error loading {title.toLowerCase()}: {error}
+        </div>
+    ); 
+    if (!data || data.length === 0) return (
+        // And the no data state
+        <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full flex items-center justify-center text-center text-gray-500">
+             No data available for {title.toLowerCase()}.
+        </div>
+    );
 
     return (
       <div className="bg-gray-800 shadow-lg rounded-lg p-6">
@@ -213,15 +235,24 @@ export default function Home() {
       {/* Chart Section */}
       <div className="w-full max-w-6xl mb-8">
          {/* Chart display logic */} 
-         {chartLoading && <div className="text-center text-gray-400 py-10">Loading chart data...</div>}
-         {chartError && !chartLoading && <div className="text-center text-red-500 py-10">Error loading chart: {chartError}</div>}
+         {/* Replace pulsing skeleton with centered spinner */}
+         {chartLoading && (
+            <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-[374px] w-full flex items-center justify-center">
+                <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
+            </div>
+         )}
+         {chartError && !chartLoading && (
+             <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-[374px] w-full flex items-center justify-center text-center text-red-500">
+                 Error loading chart: {chartError}
+            </div>
+         )}
          
          {!chartLoading && !chartError && selectedKeyword && startDate && endDate && chartData.length > 0 && (
            <SentimentChart data={chartData} keyword={selectedKeyword} />
          )}
          {/* Show message if no keyword is selected yet, or if a selected keyword returned no data */}
          {(!selectedKeyword || !startDate || !endDate) && !chartLoading && !keywordsLoading && (
-             <div className="bg-gray-800 shadow-lg rounded-lg p-6 text-center text-gray-500 h-[374px] flex items-center justify-center"> {/* Match approx chart height */} 
+             <div className="bg-gray-800 shadow-lg rounded-lg p-6 text-center text-gray-500 h-[374px] flex items-center justify-center"> 
                  Select a keyword and a date range above to view its sentiment trend.
              </div>
          )}

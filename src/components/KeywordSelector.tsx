@@ -45,8 +45,10 @@ export function KeywordSelector({
           aria-expanded={open}
           className={cn(
               "w-[300px] justify-between",
+              "h-9",
               "bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-100",
               "focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900",
+              "text-sm",
               className
           )}
           disabled={loading || keywords.length === 0}
@@ -83,7 +85,7 @@ export function KeywordSelector({
                       onKeywordSelect(currentValue === selectedKeyword ? null : currentValue)
                       setOpen(false)
                     }}
-                    className="text-sm cursor-pointer hover:bg-gray-700/80 aria-selected:bg-blue-600/50 aria-selected:text-white rounded-sm mx-1 px-2 py-1.5"
+                    className="text-sm cursor-pointer text-gray-200 hover:bg-gray-700/80 aria-selected:bg-blue-600/50 aria-selected:text-white rounded-sm mx-1 px-2 py-1.5"
                   >
                     {keyword}
                     <Check
