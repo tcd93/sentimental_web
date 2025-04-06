@@ -29,6 +29,7 @@ interface TimeseriesDataPoint {
     avg_pos?: number | null;
     avg_neg?: number | null;
     avg_mix?: number | null;
+    avg_neutral?: number | null;
     count?: number | null;
 }
 
@@ -55,7 +56,7 @@ const parseAthenaTimeseriesResults = (results: GetQueryResultsCommandOutput): Ti
                 rowData[colName] = null;
             } else if (colName === 'day') {
                 rowData[colName] = rawValue; // Assign string
-            } else if ([ 'avg_pos', 'avg_neg', 'avg_mix', 'count' ].includes(colName)) {
+            } else if ([ 'avg_pos', 'avg_neg', 'avg_mix', 'avg_neutral', 'count' ].includes(colName)) {
                 // Assign number or null
                 rowData[colName] = !isNaN(Number(rawValue)) ? Number(rawValue) : null;
             } else {
@@ -103,7 +104,7 @@ export async function GET(request: Request) {
     // --- End Date Validation ---
 
     const normalizedKeyword = keyword.toLowerCase().replace(/\s+/g, '-');
-    const cacheKey = `timeseries:${normalizedKeyword}-from${startDate}-to${endDate}-mc${minCount}`;
+    const cacheKey = `timeseries-v2:${normalizedKeyword}-from${startDate}-to${endDate}-mc${minCount}`;
 
     try {
         // --- Check Cache First ---
@@ -115,13 +116,14 @@ export async function GET(request: Request) {
         console.log(`Cache miss for key: ${cacheKey}`);
 
         // --- If Cache Miss, Query Athena ---
-        // Interpolate validated dates, keep keyword as parameter
+        // Add avg_neutral to the SELECT list
         const query = `
         SELECT 
             CAST(date_trunc('day', created_at) AS DATE) AS day,
             avg(sentiment_score_positive) AS avg_pos, 
             avg(sentiment_score_negative) AS avg_neg, 
             avg(sentiment_score_mixed) AS avg_mix, 
+            avg(sentiment_score_neutral) AS avg_neutral,
             count(1) AS count
         FROM 
             "${ATHENA_DB}"."${ATHENA_TABLE}"

@@ -68,19 +68,31 @@ interface SentimentSummary {
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    // Get sorting parameters from URL, default to top negative
+    // Get sorting parameters
     const metric = searchParams.get('metric') === 'avg_pos' ? 'avg_pos' : 'avg_neg';
     const order = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
     const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const days = parseInt(searchParams.get('days') || '30', 10);
+    // const days = parseInt(searchParams.get('days') || '30', 10); // Remove days parameter
     const minCount = parseInt(searchParams.get('minCount') || '100', 10);
+
+    // Get and validate date parameters
+    const startDate = searchParams.get('startDate'); 
+    const endDate = searchParams.get('endDate');
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!startDate || !endDate || !dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        // Return error if dates are missing or invalid
+        return NextResponse.json({ error: "Missing or invalid required query parameters: startDate and endDate must be in YYYY-MM-DD format" }, { status: 400 });
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+        return NextResponse.json({ error: "Invalid date range: startDate cannot be after endDate" }, { status: 400 });
+    }
 
     // Validate metric
     const validMetrics = ['avg_pos', 'avg_neg', 'avg_mix', 'count'];
     const orderByMetric = validMetrics.includes(metric) ? metric : 'avg_neg';
 
-    // Define cache key based on parameters
-    const cacheKey = `sentiment-summary:${metric}-${order}-l${limit}-d${days}-m${minCount}`;
+    // Define cache key based on parameters, including dates
+    const cacheKey = `sentiment-summary:${metric}-${order}-l${limit}-from${startDate}-to${endDate}-m${minCount}`;
 
     try {
         // --- Check Cache First ---
@@ -92,6 +104,7 @@ export async function GET(request: Request) {
         console.log(`Cache miss for key: ${cacheKey}`);
 
         // --- If Cache Miss, Query Athena ---
+        // Update query to use validated startDate and endDate
         const query = `
         SELECT 
             keyword,
@@ -102,11 +115,12 @@ export async function GET(request: Request) {
         FROM 
             "${ATHENA_DB}"."${ATHENA_TABLE}"
         WHERE 
-            created_at >= current_timestamp - interval '${days}' day
+            CAST(created_at AS DATE) >= date('${startDate}') 
+            AND CAST(created_at AS DATE) <= date('${endDate}')
         GROUP BY 
             keyword
         HAVING 
-            count(1) >= ${minCount} -- Use minCount parameter
+            count(1) >= ${minCount} 
         ORDER BY 
             ${orderByMetric} ${order}
         LIMIT ${limit};
