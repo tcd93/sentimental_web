@@ -83,17 +83,27 @@ const parseAthenaTimeseriesResults = (results: GetQueryResultsCommandOutput): Ti
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const keyword = searchParams.get('keyword');
-    const days = parseInt(searchParams.get('days') || '30', 10);
+    const startDate = searchParams.get('startDate'); 
+    const endDate = searchParams.get('endDate');     
     const minCount = parseInt(searchParams.get('minCountPerDay') || '5', 10);
 
     if (!keyword) {
         return NextResponse.json({ error: "Missing required query parameter: keyword" }, { status: 400 });
     }
 
-    // Define cache key based on parameters
-    // Normalize keyword for cache key consistency (e.g., lowercase, replace spaces)
+    // --- Strict Date Validation ---
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!startDate || !endDate || !dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        return NextResponse.json({ error: "Missing or invalid required query parameters: startDate and endDate must be in YYYY-MM-DD format" }, { status: 400 });
+    }
+    // Simple validation to prevent clearly invalid ranges (optional but good practice)
+    if (new Date(startDate) > new Date(endDate)) {
+        return NextResponse.json({ error: "Invalid date range: startDate cannot be after endDate" }, { status: 400 });
+    }
+    // --- End Date Validation ---
+
     const normalizedKeyword = keyword.toLowerCase().replace(/\s+/g, '-');
-    const cacheKey = `timeseries:${normalizedKeyword}-d${days}-mc${minCount}`;
+    const cacheKey = `timeseries:${normalizedKeyword}-from${startDate}-to${endDate}-mc${minCount}`;
 
     try {
         // --- Check Cache First ---
@@ -105,6 +115,7 @@ export async function GET(request: Request) {
         console.log(`Cache miss for key: ${cacheKey}`);
 
         // --- If Cache Miss, Query Athena ---
+        // Interpolate validated dates, keep keyword as parameter
         const query = `
         SELECT 
             CAST(date_trunc('day', created_at) AS DATE) AS day,
@@ -116,21 +127,22 @@ export async function GET(request: Request) {
             "${ATHENA_DB}"."${ATHENA_TABLE}"
         WHERE 
             keyword = ? 
-            AND created_at >= current_timestamp - interval '${days}' day
+            AND CAST(created_at AS DATE) >= date('${startDate}') -- Interpolate validated start date
+            AND CAST(created_at AS DATE) <= date('${endDate}') -- Interpolate validated end date
         GROUP BY 
             1 
         HAVING
-            count(1) >= ${minCount}
+            count(1) >= ${minCount} 
         ORDER BY 
             day ASC;
     `;
 
-        // Use prepared statement parameters to prevent SQL injection
+        // Only pass keyword as parameter now
         const startQueryCmd = new StartQueryExecutionCommand({
             QueryString: query,
             QueryExecutionContext: { Database: ATHENA_DB },
             ResultConfiguration: { OutputLocation: ATHENA_OUTPUT_LOCATION },
-            ExecutionParameters: [keyword] // Pass keyword as parameter
+            ExecutionParameters: [keyword] // Only keyword is a parameter
         });
 
         const { QueryExecutionId } = await athenaClient.send(startQueryCmd);
@@ -165,14 +177,11 @@ export async function GET(request: Request) {
         const results = await athenaClient.send(getQueryResultsCmd);
         const parsedData = parseAthenaTimeseriesResults(results);
 
-        // --- Store Result in Cache ---
-        // Ensure parsedData is an array before caching
+        // --- Store Result in Cache --- 
         if (Array.isArray(parsedData) && parsedData.length > 0) {
             await kv.set(cacheKey, parsedData, { ex: CACHE_TTL_SECONDS });
             console.log(`Cached result for key: ${cacheKey}`);
         } else if (Array.isArray(parsedData) && parsedData.length === 0) {
-            // Optionally cache empty results for a shorter duration to avoid repeated failed lookups
-            // await kv.set(cacheKey, [], { ex: 60 * 15 }); // Cache empty result for 15 mins
             console.log(`No data found for key: ${cacheKey}. Not caching empty result.`);
         }
 
@@ -181,7 +190,6 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error("Athena Timeseries Query Error:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        // Don't cache errors
         return NextResponse.json({ error: "Failed to query Athena for timeseries", details: errorMessage }, { status: 500 });
     }
 } 
