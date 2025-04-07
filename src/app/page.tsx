@@ -61,16 +61,18 @@ type DataSetter =
 const SentimentList: React.FC<SentimentListProps> = // Update type usage
   ({ title, data, loading, error, metric, colorClass, onKeywordClick }) => { // Destructure new prop
     
-    // Replace text loading with a skeleton placeholder
+    // Replace text loading with a detailed skeleton placeholder
     if (loading) return (
-        <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full animate-pulse">
-             {/* Optional: Add internal faint lines */}
-             {/* <div className="h-4 bg-gray-700 rounded w-1/3 mb-4"></div> */}
-             {/* <div className="space-y-3 mt-4">
-                <div className="h-10 bg-gray-700 rounded"></div>
-                <div className="h-10 bg-gray-700 rounded"></div>
-                <div className="h-10 bg-gray-700 rounded"></div>
-             </div> */} 
+        <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full">
+            {/* Skeleton Title */}
+            <div className="h-6 bg-gray-700 rounded w-1/2 mb-6 animate-pulse"></div>
+            {/* Skeleton List Items */}
+            <div className="space-y-3">
+                <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
+                <div className="h-12 bg-gray-700 rounded animate-pulse"></div> 
+            </div>
         </div>
     );
     if (error) return (
@@ -338,6 +340,10 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-start p-6 md:p-12 bg-gray-900 text-white">
       <h1 className="text-3xl md:text-4xl font-bold mb-8">Game Sentiment Dashboard</h1>
 
+      {/* Add Title for Controls Section */}
+      <div className="w-full max-w-6xl mb-2 text-center">
+          <h2 className="text-lg font-semibold text-gray-400">Filters</h2>
+      </div>
       {/* Controls Section: Keyword Selector and Date Range */}
       <div className="w-full max-w-6xl mb-6 flex flex-col md:flex-row justify-center items-center gap-4 md:gap-6 flex-wrap">
           <KeywordSelector 
