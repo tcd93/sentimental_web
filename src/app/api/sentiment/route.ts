@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { kv } from "@vercel/kv"; // Import Vercel KV client
 import { 
-    AthenaClient, 
     StartQueryExecutionCommand, 
     GetQueryExecutionCommand, 
     GetQueryResultsCommand, 
@@ -10,17 +9,13 @@ import {
     type Row as AthenaSDKRow,
     type Datum as AthenaSDKDatum
 } from "@aws-sdk/client-athena";
-
-const ATHENA_DB = "sentimental";
-const ATHENA_TABLE = "sentiment";
-const ATHENA_OUTPUT_LOCATION = "s3://tcd93-sentimental-bucket/athena-results/web";
-const AWS_REGION = "ap-southeast-1"; // Ensure this is correct
-
-const athenaClient = new AthenaClient({ region: AWS_REGION });
-const CACHE_TTL_SECONDS = 12 * 60 * 60; // 12 hours
-
-// Helper function to delay execution
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Import shared config and clients
+import {
+    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION, 
+    CACHE_TTL_SECONDS, CACHE_TTL_EMPTY_SECONDS,
+    ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS // <-- Import new constants
+} from '@/lib/config';
+import { athenaClient, delay } from '@/lib/awsClients';
 
 // Define interface for the expected data structure
 interface SentimentSummary {
@@ -98,11 +93,11 @@ export async function GET(request: Request) {
     const validMetrics = ['avg_pos', 'avg_neg', 'avg_mix', 'count', 'avg_neutral']; // Add neutral here
     const orderByMetric = validMetrics.includes(metric) ? metric : 'avg_neg';
 
-    // Define cache key based on parameters, including dates and specific keyword if present
+    // Use imported config for cache key generation
     let cacheKey = `sentiment-summary-v2:${metric}-${order}-l${limit}-from${startDate}-to${endDate}-m${minCount}`;
     if (specificKeyword) {
         const normalizedKeyword = specificKeyword.toLowerCase().replace(/\s+/g, '-');
-        cacheKey += `-k${normalizedKeyword}`; // Add keyword to key
+        cacheKey += `-k${normalizedKeyword}`;
     }
 
     try {
@@ -114,7 +109,7 @@ export async function GET(request: Request) {
         }
         console.log(`Cache miss for key: ${cacheKey}`);
 
-        // --- If Cache Miss, Query Athena ---
+        // --- Query Athena ---
         const whereClauses = [
             `CAST(created_at AS DATE) >= date('${startDate}')`,
             `CAST(created_at AS DATE) <= date('${endDate}')`
@@ -152,6 +147,7 @@ export async function GET(request: Request) {
             ResultConfiguration: { OutputLocation: ATHENA_OUTPUT_LOCATION },
         });
 
+        // Use imported client
         const { QueryExecutionId } = await athenaClient.send(startQueryCmd);
 
         if (!QueryExecutionId) {
@@ -160,8 +156,9 @@ export async function GET(request: Request) {
 
         let status: QueryExecutionState | string | undefined;
         let attempts = 0;
-        const maxAttempts = 10; // Poll for ~30 seconds max (adjust as needed)
-        const pollInterval = 3000; // 3 seconds
+        // Use imported constants for polling loop
+        const maxAttempts = ATHENA_MAX_POLL_ATTEMPTS;
+        const pollInterval = ATHENA_POLL_INTERVAL_MS;
 
         while (attempts < maxAttempts) {
             const getQueryExecutionCmd = new GetQueryExecutionCommand({ QueryExecutionId });
@@ -176,7 +173,7 @@ export async function GET(request: Request) {
             }
 
             attempts++;
-            await delay(pollInterval);
+            await delay(pollInterval); 
         }
 
         if (status !== QueryExecutionState.SUCCEEDED) {
@@ -190,10 +187,11 @@ export async function GET(request: Request) {
         const parsedData = parseAthenaResults(results);
 
         // --- Store Result in Cache ---
-        // Ensure parsedData is an array before caching
-        if (Array.isArray(parsedData) && parsedData.length > 0) {
-            await kv.set(cacheKey, parsedData, { ex: CACHE_TTL_SECONDS });
-            console.log(`Cached result for key: ${cacheKey}`);
+        if (Array.isArray(parsedData)) {
+            // Use imported TTL constants
+            const ttl = parsedData.length > 0 ? CACHE_TTL_SECONDS : CACHE_TTL_EMPTY_SECONDS;
+            await kv.set(cacheKey, parsedData, { ex: ttl });
+            console.log(`Cached result (TTL: ${ttl}s) for key: ${cacheKey}`);
         }
 
         return NextResponse.json({ data: parsedData });

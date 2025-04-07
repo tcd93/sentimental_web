@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { kv } from "@vercel/kv"; // Import Vercel KV client
+import { kv } from "@vercel/kv";
 import { 
-    AthenaClient, 
     StartQueryExecutionCommand, 
     GetQueryExecutionCommand, 
     GetQueryResultsCommand, 
@@ -10,18 +9,13 @@ import {
     type Row as AthenaSDKRow,
     type Datum as AthenaSDKDatum
 } from "@aws-sdk/client-athena";
-
-// Constants (reuse or centralize later if needed)
-const ATHENA_DB = "sentimental";
-const ATHENA_TABLE = "sentiment";
-const ATHENA_OUTPUT_LOCATION = "s3://tcd93-sentimental-bucket/athena-results/web";
-const AWS_REGION = "ap-southeast-1";
-
-const athenaClient = new AthenaClient({ region: AWS_REGION });
-const CACHE_TTL_SECONDS = 12 * 60 * 60; // 12 hours
-
-// Helper function to delay execution
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Import shared config and clients
+import {
+    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION, 
+    CACHE_TTL_SECONDS, CACHE_TTL_EMPTY_SECONDS,
+    ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS
+} from '@/lib/config';
+import { athenaClient, delay } from '@/lib/awsClients';
 
 // Define interface for parsed data points
 interface TimeseriesDataPoint {
@@ -116,7 +110,6 @@ export async function GET(request: Request) {
         console.log(`Cache miss for key: ${cacheKey}`);
 
         // --- If Cache Miss, Query Athena ---
-        // Add avg_neutral to the SELECT list
         const query = `
         SELECT 
             CAST(date_trunc('day', created_at) AS DATE) AS day,
@@ -139,12 +132,11 @@ export async function GET(request: Request) {
             day ASC;
     `;
 
-        // Only pass keyword as parameter now
         const startQueryCmd = new StartQueryExecutionCommand({
             QueryString: query,
             QueryExecutionContext: { Database: ATHENA_DB },
             ResultConfiguration: { OutputLocation: ATHENA_OUTPUT_LOCATION },
-            ExecutionParameters: [keyword] // Only keyword is a parameter
+            ExecutionParameters: [keyword]
         });
 
         const { QueryExecutionId } = await athenaClient.send(startQueryCmd);
@@ -155,8 +147,8 @@ export async function GET(request: Request) {
 
         let status: QueryExecutionState | string | undefined;
         let attempts = 0;
-        const maxAttempts = 10; 
-        const pollInterval = 3000;
+        const maxAttempts = ATHENA_MAX_POLL_ATTEMPTS;
+        const pollInterval = ATHENA_POLL_INTERVAL_MS;
 
         while (attempts < maxAttempts) {
             const getQueryExecutionCmd = new GetQueryExecutionCommand({ QueryExecutionId });
@@ -181,8 +173,9 @@ export async function GET(request: Request) {
 
         // --- Store Result in Cache --- 
         if (Array.isArray(parsedData) && parsedData.length > 0) {
-            await kv.set(cacheKey, parsedData, { ex: CACHE_TTL_SECONDS });
-            console.log(`Cached result for key: ${cacheKey}`);
+            const ttl = parsedData.length > 0 ? CACHE_TTL_SECONDS : CACHE_TTL_EMPTY_SECONDS;
+            await kv.set(cacheKey, parsedData, { ex: ttl });
+            console.log(`Cached result (TTL: ${ttl}s) for key: ${cacheKey}`);
         } else if (Array.isArray(parsedData) && parsedData.length === 0) {
             console.log(`No data found for key: ${cacheKey}. Not caching empty result.`);
         }

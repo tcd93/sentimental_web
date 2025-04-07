@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { kv } from "@vercel/kv"; 
 import { 
-    AthenaClient, 
     StartQueryExecutionCommand, 
     GetQueryExecutionCommand, 
     GetQueryResultsCommand, 
@@ -10,16 +9,13 @@ import {
     type Row as AthenaSDKRow,
     type Datum as AthenaSDKDatum
 } from "@aws-sdk/client-athena";
-
-// Constants (centralize these later)
-const ATHENA_DB = "sentimental";
-const ATHENA_TABLE = "sentiment";
-const ATHENA_OUTPUT_LOCATION = "s3://tcd93-sentimental-bucket/athena-results/web"; 
-const AWS_REGION = "ap-southeast-1"; 
-const CACHE_TTL_SECONDS = 12 * 60 * 60; // 12 hours
-
-const athenaClient = new AthenaClient({ region: AWS_REGION });
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Import shared config and clients
+import {
+    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION, 
+    CACHE_TTL_SECONDS, CACHE_TTL_EMPTY_SECONDS,
+    ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS
+} from '@/lib/config';
+import { athenaClient, delay } from '@/lib/awsClients';
 
 // Define interface for the expected data structure
 interface SentimentDistributionPoint {
@@ -51,7 +47,6 @@ const parseAthenaDistributionResults = (results: GetQueryResultsCommandOutput): 
     // Filter out any entries with zero count if necessary (usually handled by query)
     return data.filter(d => d.count > 0);
 };
-
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -118,8 +113,8 @@ export async function GET(request: Request) {
         // --- Poll for results ---
         let status: QueryExecutionState | string | undefined;
         let attempts = 0;
-        const maxAttempts = 10; 
-        const pollInterval = 3000;
+        const maxAttempts = ATHENA_MAX_POLL_ATTEMPTS;
+        const pollInterval = ATHENA_POLL_INTERVAL_MS;
 
         while (attempts < maxAttempts) {
             const getQueryExecutionCmd = new GetQueryExecutionCommand({ QueryExecutionId });
@@ -146,7 +141,7 @@ export async function GET(request: Request) {
         // --- Store Result in Cache --- 
         if (Array.isArray(parsedData)) { // Check if it's an array (even empty)
              // Cache even empty results for a short time to prevent hammering
-            const ttl = parsedData.length > 0 ? CACHE_TTL_SECONDS : 60 * 15; // 15 min TTL for empty results
+            const ttl = parsedData.length > 0 ? CACHE_TTL_SECONDS : CACHE_TTL_EMPTY_SECONDS;
             await kv.set(cacheKey, parsedData, { ex: ttl });
             console.log(`Cached result (TTL: ${ttl}s) for key: ${cacheKey}`);
         }
