@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     const keyword = searchParams.get('keyword');
     const startDate = searchParams.get('startDate'); 
     const endDate = searchParams.get('endDate');     
-    const minCount = parseInt(searchParams.get('minCountPerDay') || '5', 10);
+    const minCount = parseInt(searchParams.get('minCountPerDay') || '10', 10);
 
     if (!keyword) {
         return NextResponse.json({ error: "Missing required query parameter: keyword" }, { status: 400 });
