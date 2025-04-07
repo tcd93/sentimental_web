@@ -139,8 +139,11 @@ export default function Home() {
 
   // State for Overall Period Averages (single object or null)
   const [selectedKeywordPeriodAverages, setSelectedKeywordPeriodAverages] = useState<PeriodAverages | null>(null);
-  // State to temporarily hold the array result from the API
+  // State for temporary API result
   const [periodAveragesApiResult, setPeriodAveragesApiResult] = useState<PeriodAverages[]>([]); 
+
+  // State for Drilldown
+  const [drilldownSentiment, setDrilldownSentiment] = useState<string | null>(null);
 
   // State for Date Range
   const [startDate, setStartDate] = useState<string>(() => {
@@ -219,11 +222,12 @@ export default function Home() {
 
   // Effect to fetch chart, distribution, and period averages array data
   useEffect(() => {
-    // Clear relevant states
+    // Clear all states
     setChartData([]);
     setDistributionData([]);
     setPeriodAveragesApiResult([]); 
     setSelectedKeywordPeriodAverages(null); 
+    setDrilldownSentiment(null); // <-- Reset drilldown on new fetch
     
     // Set loading states (only for charts being displayed)
     if (selectedKeyword && startDate && endDate) {
@@ -411,7 +415,12 @@ export default function Home() {
                 </div>
              )}
              {!chartLoading && !chartError && selectedKeyword && startDate && endDate && chartData.length > 0 && (
-               <SentimentChart data={chartData} keyword={selectedKeyword} />
+               <SentimentChart 
+                  data={chartData} 
+                  keyword={selectedKeyword} 
+                  // Pass drilldown state
+                  drilldownSentiment={drilldownSentiment}
+                />
              )}
              {/* Placeholder/Message when no chart data to show */}
              {(!selectedKeyword || !startDate || !endDate || (!chartLoading && !chartError && chartData.length === 0)) && !chartLoading && (
@@ -441,8 +450,10 @@ export default function Home() {
                <SentimentDistributionChart 
                   data={distributionData} 
                   keyword={selectedKeyword} 
-                  // Pass down the period averages object
                   periodAverages={selectedKeywordPeriodAverages} 
+                  // Pass state and setter for drilldown
+                  selectedSentiment={drilldownSentiment}
+                  onSentimentSelect={setDrilldownSentiment}
                 />
              )}
              {/* Placeholder/Message when no distribution data to show */}

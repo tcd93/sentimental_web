@@ -29,7 +29,9 @@ interface PeriodAverages {
 interface SentimentDistributionChartProps {
   data: SentimentDistributionDataPoint[];
   keyword: string;
-  periodAverages: PeriodAverages | null; // <-- Add prop for averages
+  periodAverages: PeriodAverages | null;
+  selectedSentiment: string | null;
+  onSentimentSelect: (sentiment: string | null) => void;
 }
 
 // Define colors for each sentiment category
@@ -44,7 +46,13 @@ const SENTIMENT_COLORS: { [key: string]: string } = {
 // Define fixed order for legend and sorting
 const SENTIMENT_ORDER = ['POSITIVE', 'NEGATIVE', 'NEUTRAL', 'MIXED'];
 
-const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({ data, keyword, periodAverages }) => {
+const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({ 
+  data, 
+  keyword, 
+  periodAverages, 
+  selectedSentiment,
+  onSentimentSelect
+}) => {
 
   if (!data || data.length === 0) {
     // You might want a different message or a placeholder visual here
@@ -104,36 +112,48 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
       color: SENTIMENT_COLORS[sentiment] || SENTIMENT_COLORS.UNKNOWN
   }));
 
+  // Handle clicks on Pie slices
+  const handlePieClick = (data: SentimentDistributionDataPoint) => {
+      const clickedSentiment = data?.sentiment?.toUpperCase();
+      if (!clickedSentiment) return;
+      
+      // If clicking the already selected slice, deselect (reset drilldown)
+      if (clickedSentiment === selectedSentiment?.toUpperCase()) {
+          onSentimentSelect(null);
+      } else {
+          onSentimentSelect(clickedSentiment); // Set drilldown to clicked sentiment
+      }
+  };
+
   return (
-    <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-full flex flex-col"> {/* Use h-full and flex-col */}
+    <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-full flex flex-col">
       <h3 className="text-xl font-semibold mb-4 text-blue-300">Sentiment Distribution: {keyword}</h3>
-      {/* Make chart container flexible */}
-      <div className="flex-grow">
+      <div className="flex-grow min-h-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                // Use sorted data
                 data={sortedData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                outerRadius={80} // Adjust size if needed
-                innerRadius={40} // Make it a donut chart
-                fill="#8884d8" 
+                outerRadius={80}
+                innerRadius={40}
+                fill="#8884d8"
                 dataKey="count"
                 nameKey="sentiment"
+                onClick={handlePieClick}
+                className="cursor-pointer focus:outline-none focus:ring-0"
               >
                 {sortedData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={SENTIMENT_COLORS[entry.sentiment.toUpperCase()] || SENTIMENT_COLORS.UNKNOWN} />
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={SENTIMENT_COLORS[entry.sentiment.toUpperCase()] || SENTIMENT_COLORS.UNKNOWN} 
+                    opacity={selectedSentiment && entry.sentiment.toUpperCase() !== selectedSentiment.toUpperCase() ? 0.4 : 1}
+                  />
                 ))}
               </Pie>
               <Tooltip content={renderCustomTooltip} />
-              {/* Provide explicit payload to Legend */}
-              <Legend 
-                 payload={legendPayload} 
-                 wrapperStyle={{ paddingTop: '15px' }} 
-                 align="center"
-              />
+              <Legend payload={legendPayload} wrapperStyle={{ paddingTop: '15px' }} align="center"/>
             </PieChart>
           </ResponsiveContainer>
        </div>
