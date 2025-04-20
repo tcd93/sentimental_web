@@ -207,7 +207,7 @@ export default function Home() {
   // Effect to fetch lists and keywords (remains the same)
   useEffect(() => {
     // Construct URLs with date range for lists
-    const listParams = `?limit=20&startDate=${startDate}&endDate=${endDate}`; // Add minCount if needed
+    const listParams = `?limit=20&startDate=${startDate}&endDate=${endDate}`;
     const negUrl = `/api/sentiment${listParams}&metric=avg_neg&order=desc`;
     const posUrl = `/api/sentiment${listParams}&metric=avg_pos&order=desc`;
     // Keyword fetch doesn't need date range (fetches all distinct keywords for selector)

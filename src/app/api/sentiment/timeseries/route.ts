@@ -80,7 +80,6 @@ export async function GET(request: Request) {
     const keyword = searchParams.get('keyword');
     const startDate = searchParams.get('startDate'); 
     const endDate = searchParams.get('endDate');     
-    const minCount = parseInt(searchParams.get('minCountPerDay') || '10', 10);
 
     if (!keyword) {
         return NextResponse.json({ error: "Missing required query parameter: keyword" }, { status: 400 });
@@ -98,7 +97,7 @@ export async function GET(request: Request) {
     // --- End Date Validation ---
 
     const normalizedKeyword = keyword.toLowerCase().replace(/\s+/g, '-');
-    const cacheKey = `timeseries-v2:${normalizedKeyword}-from${startDate}-to${endDate}-mc${minCount}`;
+    const cacheKey = `timeseries-v2:${normalizedKeyword}-from${startDate}-to${endDate}`;
 
     try {
         // --- Check Cache First ---
@@ -125,9 +124,7 @@ export async function GET(request: Request) {
             AND CAST(created_at AS DATE) >= date('${startDate}') -- Interpolate validated start date
             AND CAST(created_at AS DATE) <= date('${endDate}') -- Interpolate validated end date
         GROUP BY 
-            1 
-        HAVING
-            count(1) >= ${minCount} 
+            1
         ORDER BY 
             day ASC;
     `;

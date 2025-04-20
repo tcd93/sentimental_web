@@ -74,7 +74,6 @@ export async function GET(request: Request) {
     const metric = searchParams.get('metric') === 'avg_pos' ? 'avg_pos' : 'avg_neg';
     const order = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
     const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const minCount = parseInt(searchParams.get('minCount') || '10', 10);
     const startDate = searchParams.get('startDate'); 
     const endDate = searchParams.get('endDate');
     const specificKeyword = searchParams.get('keyword'); // <-- Get specific keyword param
@@ -94,7 +93,7 @@ export async function GET(request: Request) {
     const orderByMetric = validMetrics.includes(metric) ? metric : 'avg_neg';
 
     // Use imported config for cache key generation
-    let cacheKey = `sentiment-summary-v2:${metric}-${order}-l${limit}-from${startDate}-to${endDate}-m${minCount}`;
+    let cacheKey = `sentiment-summary-v2:${metric}-${order}-l${limit}-from${startDate}-to${endDate}`;
     if (specificKeyword) {
         const normalizedKeyword = specificKeyword.toLowerCase().replace(/\s+/g, '-');
         cacheKey += `-k${normalizedKeyword}`;
@@ -134,8 +133,6 @@ export async function GET(request: Request) {
             ${whereClauses.join(' AND \n            ')}
         GROUP BY 
             keyword
-        HAVING 
-            count(1) >= ${minCount} 
         ORDER BY 
             ${orderByMetric} ${order}
         LIMIT ${limit};
