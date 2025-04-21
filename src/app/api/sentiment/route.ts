@@ -5,9 +5,7 @@ import {
     GetQueryExecutionCommand, 
     GetQueryResultsCommand, 
     QueryExecutionState,
-    type GetQueryResultsCommandOutput,
-    type Row as AthenaSDKRow,
-    type Datum as AthenaSDKDatum
+    type GetQueryResultsCommandOutput
 } from "@aws-sdk/client-athena";
 // Import shared config and clients
 import {
@@ -16,16 +14,18 @@ import {
     ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS // <-- Import new constants
 } from '@/lib/config';
 import { athenaClient, delay } from '@/lib/awsClients';
+import { z } from "zod";
 
-// Define interface for the expected data structure
-interface SentimentSummary {
-  keyword: string;
-  avg_pos: number | null; // Use null for potential DB nulls
-  avg_neg: number | null;
-  avg_mix: number | null;
-  avg_neutral: number | null; // <-- Add neutral
-  count: number;
-}
+// Define Zod schema for the data structure
+const SentimentSummarySchema = z.object({
+    keyword: z.string(),
+    avg_pos: z.number().nullable(),
+    avg_neg: z.number().nullable(),
+    avg_mix: z.number().nullable(),
+    avg_neutral: z.number().nullable(),
+    count: z.number()
+});
+type SentimentSummary = z.infer<typeof SentimentSummarySchema>;
 
 // Helper function to parse Athena results using SDK types
 const parseAthenaResults = (results: GetQueryResultsCommandOutput): SentimentSummary[] => {
@@ -34,39 +34,34 @@ const parseAthenaResults = (results: GetQueryResultsCommandOutput): SentimentSum
         return [];
     }
     
-    const columns = rows[0].Data?.map((datum: AthenaSDKDatum) => datum.VarCharValue ?? 'unknown') ?? [];
+    const columns = rows[0].Data?.map((datum) => datum.VarCharValue) ?? [];
     
-    const data = rows.slice(1).map((row: AthenaSDKRow) => {
-        const rowData: Partial<SentimentSummary> & { keyword: string } = { keyword: '' }; // Initialize with partial type + keyword
-        row.Data?.forEach((datum: AthenaSDKDatum, index: number) => {
-            const colName = columns[index];
-            if (!colName || colName === 'unknown') return; 
+    const data = rows.slice(1).map((row) => {
+        const parsed_row = row.Data?.reduce((obj, field, i) => {
+            const key = columns[i] as keyof SentimentSummary;
+            const value = field.VarCharValue;
 
-            const rawValue = datum.VarCharValue;
-
-            if (colName === 'keyword') {
-                rowData.keyword = rawValue ?? 'UNKNOWN';
-            } else if ([ 'avg_pos', 'avg_neg', 'avg_mix', 'avg_neutral', 'count' ].includes(colName)) {
-                const numValue = (rawValue !== undefined && rawValue !== null && !isNaN(Number(rawValue))) ? Number(rawValue) : null;
-                // Assign to typed keys, handling potential nulls
-                if (colName === 'count') {
-                    rowData.count = numValue ?? 0;
-                } else if (colName === 'avg_pos' || colName === 'avg_neg' || colName === 'avg_mix' || colName === 'avg_neutral') {
-                    rowData[colName] = numValue; 
-                }
+            switch (key) {
+                case 'keyword':
+                    obj[key] = value;
+                    break;
+                case 'avg_pos':
+                case 'avg_neg':
+                case 'avg_mix':
+                case 'avg_neutral':
+                    obj[key] = value !== undefined ? Number(value) : null;
+                    break;
+                case 'count':
+                    obj[key] = Number(value);
+                    break;
             }
-        });
-        // Ensure all required fields are present, provide defaults if necessary
-        return {
-            keyword: rowData.keyword,
-            avg_pos: rowData.avg_pos ?? null,
-            avg_neg: rowData.avg_neg ?? null,
-            avg_mix: rowData.avg_mix ?? null,
-            avg_neutral: rowData.avg_neutral ?? null,
-            count: rowData.count ?? 0,
-        } as SentimentSummary;
+            return obj;
+        }, {} as Partial<SentimentSummary>);
+        
+        return SentimentSummarySchema.parse(parsed_row);
     });
-    return data.filter(d => d.keyword !== 'UNKNOWN'); // Filter out potential parse errors
+
+    return data;
 };
 
 export async function GET(request: Request) {

@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { kv } from "@vercel/kv"; // Import Vercel KV client
-import { 
-    AthenaClient, 
-    StartQueryExecutionCommand, 
-    GetQueryExecutionCommand, 
-    GetQueryResultsCommand, 
-    QueryExecutionState, 
-    type GetQueryResultsCommandOutput,
-    type Row as AthenaSDKRow,
+import {
+    AthenaClient,
+    StartQueryExecutionCommand,
+    GetQueryExecutionCommand,
+    GetQueryResultsCommand,
+    QueryExecutionState,
+    type GetQueryResultsCommandOutput
 } from "@aws-sdk/client-athena";
 
 // Constants (reuse or centralize later)
@@ -22,24 +21,20 @@ const CACHE_TTL_SECONDS = 12 * 60 * 60; // 12 hours
 // Helper function to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Removed the custom Athena interfaces
-
 // Helper function to parse keyword results using SDK types
 const parseKeywordsResults = (results: GetQueryResultsCommandOutput): string[] => {
     // Use optional chaining and nullish coalescing with SDK types
     const rows = results.ResultSet?.Rows ?? [];
 
     // Check if there are enough rows (header + at least one data row)
-    if (rows.length < 2) { 
+    if (rows.length < 2) {
         return [];
     }
-    
+
     // Skip header row (index 0)
     return rows.slice(1)
-        // Map over SDK Row type using the correct alias
-        .map((row: AthenaSDKRow) => row.Data?.[0]?.VarCharValue) // Use AthenaSDKRow alias here
-        // Filter out undefined, null, or empty strings
-        .filter((keyword): keyword is string => typeof keyword === 'string' && keyword.length > 0); 
+        .map((row) => row.Data?.[0]?.VarCharValue)
+        .filter((keyword): keyword is string => typeof keyword === 'string' && keyword.length > 0);
 };
 
 export async function GET(request: Request) {
@@ -80,7 +75,7 @@ export async function GET(request: Request) {
 
         let status: QueryExecutionState | string | undefined;
         let attempts = 0;
-        const maxAttempts = 10; 
+        const maxAttempts = 10;
         const pollInterval = 3000;
 
         while (attempts < maxAttempts) {
@@ -97,7 +92,7 @@ export async function GET(request: Request) {
         }
 
         if (status !== QueryExecutionState.SUCCEEDED) {
-             throw new Error(`Keywords query ${QueryExecutionId} did not complete successfully. Final state: ${status}`);
+            throw new Error(`Keywords query ${QueryExecutionId} did not complete successfully. Final state: ${status}`);
         }
 
         const getQueryResultsCmd = new GetQueryResultsCommand({ QueryExecutionId });
@@ -111,7 +106,7 @@ export async function GET(request: Request) {
             await kv.set(cacheKey, keywords, { ex: CACHE_TTL_SECONDS });
             console.log(`Cached result for key: ${cacheKey}`);
         } else {
-             console.log(`No keywords found for key: ${cacheKey}. Not caching empty result.`);
+            console.log(`No keywords found for key: ${cacheKey}. Not caching empty result.`);
         }
 
         return NextResponse.json({ keywords });

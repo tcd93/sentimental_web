@@ -1,85 +1,73 @@
 import { NextResponse } from 'next/server';
 import { kv } from "@vercel/kv";
-import { 
-    StartQueryExecutionCommand, 
-    GetQueryExecutionCommand, 
-    GetQueryResultsCommand, 
+import {
+    StartQueryExecutionCommand,
+    GetQueryExecutionCommand,
+    GetQueryResultsCommand,
     QueryExecutionState,
-    type GetQueryResultsCommandOutput,
-    type Row as AthenaSDKRow,
-    type Datum as AthenaSDKDatum
+    type GetQueryResultsCommandOutput
 } from "@aws-sdk/client-athena";
 // Import shared config and clients
 import {
-    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION, 
+    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION,
     CACHE_TTL_SECONDS, CACHE_TTL_EMPTY_SECONDS,
     ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS
 } from '@/lib/config';
 import { athenaClient, delay } from '@/lib/awsClients';
+import { z } from "zod";
 
-// Define interface for parsed data points
-interface TimeseriesDataPoint {
-    day: string; // Expect day to be a string like 'YYYY-MM-DD'
-    avg_pos?: number | null;
-    avg_neg?: number | null;
-    avg_mix?: number | null;
-    avg_neutral?: number | null;
-    count?: number | null;
-}
+const TimeseriesDataPointSchema = z.object({
+    day: z.string(), // Expect day to be a string like 'YYYY-MM-DD'
+    avg_pos: z.number().nullable(),
+    avg_neg: z.number().nullable(),
+    avg_mix: z.number().nullable(),
+    avg_neutral: z.number().nullable(),
+    count: z.number(),
+});
 
-// Helper function to parse Athena timeseries results using SDK types
-const parseAthenaTimeseriesResults = (results: GetQueryResultsCommandOutput): TimeseriesDataPoint[] => {
+type TimeseriesDataPoint = z.infer<typeof TimeseriesDataPointSchema>;
+
+const parseAthenaTimeseriesResults = (
+    results: GetQueryResultsCommandOutput
+): TimeseriesDataPoint[] => {
     const rows = results.ResultSet?.Rows ?? [];
-    if (rows.length < 2) {
-        return []; // Need header + at least one data row
-    }
+    if (rows.length < 2) return [];
 
-    // Extract column names from header row
-    const columns = rows[0].Data?.map((datum: AthenaSDKDatum) => datum.VarCharValue ?? 'unknown') ?? [];
+    const columns = rows[0].Data?.map((d) => d.VarCharValue) ?? [];
 
-    // Process data rows
-    const data = rows.slice(1).map((row: AthenaSDKRow) => {
-        const rowData: { [key: string]: string | number | null } = {}; 
-        row.Data?.forEach((datum: AthenaSDKDatum, index: number) => {
-            const colName = columns[index];
-            if (!colName || colName === 'unknown') return;
+    const data = rows.slice(1).map((row) => {
+        const parsed_row = row.Data?.reduce((obj, field, i) => {
+            const key = columns[i] as keyof TimeseriesDataPoint;
+            const value = field.VarCharValue;
 
-            const rawValue = datum.VarCharValue;
-
-            if (rawValue === undefined || rawValue === null) {
-                rowData[colName] = null;
-            } else if (colName === 'day') {
-                rowData[colName] = rawValue; // Assign string
-            } else if ([ 'avg_pos', 'avg_neg', 'avg_mix', 'avg_neutral', 'count' ].includes(colName)) {
-                // Assign number or null
-                rowData[colName] = !isNaN(Number(rawValue)) ? Number(rawValue) : null;
-            } else {
-                rowData[colName] = rawValue; // Assign string
+            switch (key) {
+                case 'day':
+                    obj[key] = value;
+                    break;
+                case 'avg_pos':
+                case 'avg_neg':
+                case 'avg_mix':
+                case 'avg_neutral':
+                    obj[key] = value !== undefined ? Number(value) : null;
+                    break;
+                case 'count':
+                    obj['count'] = Number(value);
+                    break;
             }
-        });
-        // Assert via unknown first to handle the type mismatch safely
-        return rowData as unknown as TimeseriesDataPoint; 
+            return obj;
+        }
+            , {} as Partial<TimeseriesDataPoint>);
+        return TimeseriesDataPointSchema.parse(parsed_row);
     });
 
-    // Filter out any rows that might not conform fully after mapping (optional safety)
-    const validData = data.filter((d): d is TimeseriesDataPoint => typeof d?.day === 'string');
-
-    // Sort by date ascending
-    return validData.sort((a: TimeseriesDataPoint, b: TimeseriesDataPoint) => {
-        const dateA = new Date(a.day).getTime();
-        const dateB = new Date(b.day).getTime();
-        if (isNaN(dateA) && isNaN(dateB)) return 0;
-        if (isNaN(dateA)) return 1;
-        if (isNaN(dateB)) return -1;
-        return dateA - dateB;
-    });
+    return data.sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
 };
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const keyword = searchParams.get('keyword');
-    const startDate = searchParams.get('startDate'); 
-    const endDate = searchParams.get('endDate');     
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     if (!keyword) {
         return NextResponse.json({ error: "Missing required query parameter: keyword" }, { status: 400 });
@@ -161,7 +149,7 @@ export async function GET(request: Request) {
         }
 
         if (status !== QueryExecutionState.SUCCEEDED) {
-             throw new Error(`Query ${QueryExecutionId} did not complete successfully. Final state: ${status}`);
+            throw new Error(`Query ${QueryExecutionId} did not complete successfully. Final state: ${status}`);
         }
 
         const getQueryResultsCmd = new GetQueryResultsCommand({ QueryExecutionId });

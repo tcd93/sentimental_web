@@ -1,58 +1,61 @@
 import { NextResponse } from 'next/server';
-import { kv } from "@vercel/kv"; 
-import { 
-    StartQueryExecutionCommand, 
-    GetQueryExecutionCommand, 
-    GetQueryResultsCommand, 
+import { kv } from "@vercel/kv";
+import {
+    StartQueryExecutionCommand,
+    GetQueryExecutionCommand,
+    GetQueryResultsCommand,
     QueryExecutionState,
-    type GetQueryResultsCommandOutput,
-    type Row as AthenaSDKRow,
-    type Datum as AthenaSDKDatum
+    type GetQueryResultsCommandOutput
 } from "@aws-sdk/client-athena";
+import { z } from "zod";
 // Import shared config and clients
 import {
-    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION, 
+    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION,
     CACHE_TTL_SECONDS, CACHE_TTL_EMPTY_SECONDS,
     ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS
 } from '@/lib/config';
 import { athenaClient, delay } from '@/lib/awsClients';
 
-// Define interface for the expected data structure
-interface SentimentDistributionPoint {
-  sentiment: string;
-  count: number;
-}
+// Define Zod schema for the data structure
+const SentimentDistributionPointSchema = z.object({
+    sentiment: z.string(),
+    count: z.number()
+});
 
-// Helper function to parse Athena results for distribution
+type SentimentDistributionPoint = z.infer<typeof SentimentDistributionPointSchema>;
+
 const parseAthenaDistributionResults = (results: GetQueryResultsCommandOutput): SentimentDistributionPoint[] => {
     const rows = results.ResultSet?.Rows ?? [];
-    if (rows.length < 2) return []; 
+    if (rows.length < 2) return [];
 
-    const columns = rows[0].Data?.map((datum: AthenaSDKDatum) => datum.VarCharValue ?? 'unknown') ?? [];
-    const sentimentColIndex = columns.indexOf('sentiment');
-    const countColIndex = columns.indexOf('count');
+    const columns = rows[0].Data?.map((datum) => datum.VarCharValue) ?? [];
 
-    if (sentimentColIndex === -1 || countColIndex === -1) {
-        console.error("Required columns ('sentiment', 'count') not found in Athena results.");
-        return [];
-    }
-
-    const data = rows.slice(1).map((row: AthenaSDKRow) => {
-        const sentiment = row.Data?.[sentimentColIndex]?.VarCharValue ?? 'UNKNOWN';
-        const countStr = row.Data?.[countColIndex]?.VarCharValue ?? '0';
-        const count = parseInt(countStr, 10); 
-        return { sentiment, count: !isNaN(count) ? count : 0 };
+    const data = rows.slice(1).map((row) => {
+        const parsed_row = row.Data?.reduce((obj, field, i) => {
+            const key = columns[i] as keyof SentimentDistributionPoint;
+            const value = field.VarCharValue;
+            
+            switch (key) {
+                case 'sentiment':
+                    obj[key] = value;
+                    break;
+                case 'count':
+                    obj[key] = Number(value);
+                    break;
+            }
+            return obj;
+        }, {} as Partial<SentimentDistributionPoint>);
+        return SentimentDistributionPointSchema.parse(parsed_row);
     });
 
-    // Filter out any entries with zero count if necessary (usually handled by query)
-    return data.filter(d => d.count > 0);
+    return data.filter((d) => d.count > 0);
 };
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const keyword = searchParams.get('keyword');
-    const startDate = searchParams.get('startDate'); 
-    const endDate = searchParams.get('endDate');     
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     if (!keyword) {
         return NextResponse.json({ error: "Missing required query parameter: keyword" }, { status: 400 });
@@ -130,7 +133,7 @@ export async function GET(request: Request) {
         }
 
         if (status !== QueryExecutionState.SUCCEEDED) {
-             throw new Error(`Query ${QueryExecutionId} did not complete successfully. Final state: ${status}`);
+            throw new Error(`Query ${QueryExecutionId} did not complete successfully. Final state: ${status}`);
         }
 
         // --- Fetch and Parse Results ---
@@ -140,7 +143,7 @@ export async function GET(request: Request) {
 
         // --- Store Result in Cache --- 
         if (Array.isArray(parsedData)) { // Check if it's an array (even empty)
-             // Cache even empty results for a short time to prevent hammering
+            // Cache even empty results for a short time to prevent hammering
             const ttl = parsedData.length > 0 ? CACHE_TTL_SECONDS : CACHE_TTL_EMPTY_SECONDS;
             await kv.set(cacheKey, parsedData, { ex: ttl });
             console.log(`Cached result (TTL: ${ttl}s) for key: ${cacheKey}`);
@@ -153,4 +156,4 @@ export async function GET(request: Request) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
         return NextResponse.json({ error: "Failed to query Athena for sentiment distribution", details: errorMessage }, { status: 500 });
     }
-} 
+}
