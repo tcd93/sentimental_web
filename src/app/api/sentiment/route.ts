@@ -133,6 +133,8 @@ export async function GET(request: Request) {
             ${whereClauses.join(' AND \n            ')}
         GROUP BY 
             keyword
+        HAVING 
+            count(1) > 20
         ORDER BY 
             ${orderByMetric} ${order}
         LIMIT ${limit};
