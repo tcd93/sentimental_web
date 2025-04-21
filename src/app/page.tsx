@@ -5,6 +5,7 @@ import SentimentChart from '@/components/SentimentChart'; // Import the new char
 import { KeywordSelector } from '@/components/KeywordSelector'; // Import the keyword selector
 import { Loader2 } from 'lucide-react'; // <-- Import Loader2 icon
 import SentimentDistributionChart from '@/components/SentimentDistributionChart'; // <-- Import the new chart
+import SentimentList from '@/components/SentimentList';
 
 // Define an interface for the data structure returned by the API
 interface SentimentData {
@@ -30,17 +31,6 @@ interface DistributionDataPoint {
   count: number;
 }
 
-// Define the interface for props including the click handler
-interface SentimentListProps {
-    title: string;
-    data: SentimentData[];
-    loading: boolean;
-    error: string | null;
-    metric: 'avg_pos' | 'avg_neg';
-    colorClass: string;
-    onKeywordClick: (keyword: string) => void; // Add this prop
-}
-
 // Interface for Overall Period Averages (matches SentimentSummary from API)
 interface PeriodAverages {
     keyword: string; // Keep keyword for potential future use
@@ -56,61 +46,6 @@ type DataSetter =
     React.Dispatch<React.SetStateAction<TimeseriesDataPoint[]>> | 
     React.Dispatch<React.SetStateAction<DistributionDataPoint[]>> | 
     React.Dispatch<React.SetStateAction<SentimentData[]>>; // Add list data type if needed
-
-// Reusable component for displaying a list of games
-const SentimentList: React.FC<SentimentListProps> = // Update type usage
-  ({ title, data, loading, error, metric, colorClass, onKeywordClick }) => { // Destructure new prop
-    
-    // Replace text loading with a detailed skeleton placeholder
-    if (loading) return (
-        <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full">
-            {/* Skeleton Title */}
-            <div className="h-6 bg-gray-700 rounded w-1/2 mb-6 animate-pulse"></div>
-            {/* Skeleton List Items */}
-            <div className="space-y-3">
-                <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-                <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-                <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-                <div className="h-12 bg-gray-700 rounded animate-pulse"></div> 
-            </div>
-        </div>
-    );
-    if (error) return (
-        // Also style error state similarly for consistency
-        <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full flex items-center justify-center text-center text-red-500">
-             Error loading {title.toLowerCase()}: {error}
-        </div>
-    ); 
-    if (!data || data.length === 0) return (
-        // And the no data state
-        <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full flex items-center justify-center text-center text-gray-500">
-             No data available for {title.toLowerCase()}.
-        </div>
-    );
-
-    return (
-      <div className="bg-gray-800 shadow-lg rounded-lg p-6">
-        <h2 className={`text-2xl font-semibold mb-4 ${colorClass}`}>{title}</h2>
-        <ul className="space-y-3">
-          {data.map((item, index) => (
-            <li 
-              key={item.keyword} 
-              className="p-4 bg-gray-700 rounded shadow flex justify-between items-center transition-colors duration-150 hover:bg-gray-600/80 cursor-pointer" // Add hover effect and cursor
-              onClick={() => onKeywordClick(item.keyword)} // Add onClick handler
-            >
-              <span className="font-medium text-lg">{index + 1}. {item.keyword}</span>
-              <div className="text-right text-sm">
-                <span className={`${colorClass} block`}>
-                  {metric === 'avg_neg' ? 'Avg Negative' : 'Avg Positive'}: {item[metric].toFixed(4)}
-                </span>
-                <span className="text-gray-400 block">Count: {item.count}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-};
 
 export default function Home() {
   // State for lists
