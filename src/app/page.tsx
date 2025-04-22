@@ -11,6 +11,7 @@ import { SentimentSummary } from "@/lib/types/sentiment";
 import { useSentimentLists } from "@/lib/hooks/useSentimentLists";
 import { useKeywords } from "@/lib/hooks/useKeywords";
 import { useChartData } from "@/lib/hooks/useChartData";
+import { handleDatePreset, getListTitle } from "@/lib/utils";
 
 export default function Home() {
   // State for keywords
@@ -61,64 +62,6 @@ export default function Home() {
     }
   }, [positiveList, selectedKeyword, keywordsList]);
 
-  // Helper function to format date to YYYY-MM-DD
-  const formatDateISO = (date: Date): string => {
-    return date.toISOString().split("T")[0];
-  };
-
-  // Function to handle date preset button clicks
-  const handleDatePreset = (preset: "7d" | "30d" | "90d") => {
-    const today = new Date();
-    // Use const as newStartDate is not reassigned anymore
-    const newStartDate = new Date();
-
-    if (preset === "7d") {
-      newStartDate.setDate(today.getDate() - 7);
-    } else if (preset === "30d") {
-      newStartDate.setDate(today.getDate() - 30);
-    } else if (preset === "90d") {
-      newStartDate.setDate(today.getDate() - 90);
-    }
-
-    setStartDate(formatDateISO(newStartDate));
-    setEndDate(formatDateISO(today));
-  };
-
-  // Helper function to format title based on date range
-  const getListTitle = (baseTitle: string): string => {
-    // Calculate if it's the default 30 days directly
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const defaultStart = formatDateISO(thirtyDaysAgo);
-    const today = formatDateISO(new Date());
-    const isDefault = startDate === defaultStart && endDate === today;
-
-    if (isDefault) {
-      return `${baseTitle} (Last 30 Days)`;
-    }
-    // Format dates for display (e.g., 'MMM D, YYYY')
-    try {
-      const startFormatted = new Date(
-        startDate + "T00:00:00"
-      ).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-      const endFormatted = new Date(endDate + "T00:00:00").toLocaleDateString(
-        "en-US",
-        { year: "numeric", month: "short", day: "numeric" }
-      );
-      if (startDate === endDate) {
-        return `${baseTitle} (${startFormatted})`;
-      }
-      return `${baseTitle} (${startFormatted} - ${endFormatted})`;
-    } catch (e) {
-      console.error("Error formatting date for title:", e);
-      return `${baseTitle} (Custom Range)`; // Fallback
-    }
-  };
-
   return (
     <main className="flex min-h-screen flex-col items-center justify-start p-6 md:p-12 bg-gray-900 text-white">
       <h1 className="text-3xl md:text-4xl font-bold mb-8">
@@ -150,7 +93,7 @@ export default function Home() {
           endDate={endDate}
           setStartDate={setStartDate}
           setEndDate={setEndDate}
-          handleDatePreset={handleDatePreset}
+          handleDatePreset={(preset) => handleDatePreset(preset, setStartDate, setEndDate)}
         />
       </div>
 
@@ -251,7 +194,7 @@ export default function Home() {
       <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6">
         <SentimentList
           // Use helper function for dynamic title
-          title={getListTitle("Top 20 Most Negative Games")}
+          title={getListTitle("Top 20 Most Negative Games", startDate, endDate)}
           data={negativeList.data}
           loading={negativeList.loading}
           error={negativeList.error}
@@ -261,7 +204,7 @@ export default function Home() {
         />
         <SentimentList
           // Use helper function for dynamic title
-          title={getListTitle("Top 20 Most Positive Games")}
+          title={getListTitle("Top 20 Most Positive Games", startDate, endDate)}
           data={positiveList.data}
           loading={positiveList.loading}
           error={positiveList.error}

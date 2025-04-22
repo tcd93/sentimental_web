@@ -12,10 +12,10 @@ import {
   LegendType
 } from 'recharts';
 import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
-import { SentimentSummary } from "@/lib/types/sentiment";
+import { SentimentSummary, DistributionDataPoint } from "@/lib/types/sentiment";
 
 interface SentimentDistributionChartProps {
-  data: import("@/lib/types/sentiment").DistributionDataPoint[];
+  data: DistributionDataPoint[];
   keyword: string;
   periodAverages: SentimentSummary | null;
   selectedSentiment: string | null;
@@ -64,7 +64,7 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   const renderCustomTooltip = (props: TooltipProps<ValueType, NameType>) => {
     const { active, payload } = props;
     if (active && payload && payload.length) {
-      const entryPayload = payload[0].payload as import("@/lib/types/sentiment").DistributionDataPoint;
+      const entryPayload = payload[0].payload as DistributionDataPoint;
       const percentage = total > 0 ? ((entryPayload.count / total) * 100).toFixed(1) : 0;
       
       // Get the corresponding average score
@@ -101,7 +101,7 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   }));
 
   // Handle clicks on Pie slices
-  const handlePieClick = (data: import("@/lib/types/sentiment").DistributionDataPoint) => {
+  const handlePieClick = (data: DistributionDataPoint) => {
       const clickedSentiment = data?.sentiment?.toUpperCase();
       if (!clickedSentiment) return;
       
