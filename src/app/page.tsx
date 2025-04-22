@@ -3,14 +3,16 @@
 import { useState, useEffect } from "react";
 import SentimentTimeSeriesChart from "@/components/SentimentChart"; // Import the new chart component
 import { KeywordSelector } from "@/components/KeywordSelector"; // Import the keyword selector
-import { Loader2 } from "lucide-react"; // <-- Import Loader2 icon
+import { Loader2, ChevronLeft, ChevronRight } from "lucide-react"; // <-- Import Loader2 and Chevron icons
 import SentimentDistributionChart from "@/components/SentimentDistributionChart"; // <-- Import the new chart
 import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
-import { useSentimentLists } from "@/lib/hooks/useSentimentLists";
+import { useSentimentList } from "@/lib/hooks/useSentimentLists";
 import { useKeywords } from "@/lib/hooks/useKeywords";
 import { useChartData } from "@/lib/hooks/useChartData";
 import { handleDatePreset, getListTitle } from "@/lib/utils";
+import { Carousel } from 'react-responsive-carousel';
+import 'react-responsive-carousel/lib/styles/carousel.min.css';
 
 export default function Home() {
   // State for keywords
@@ -31,7 +33,9 @@ export default function Home() {
   });
 
   // Use custom hooks for data fetching and state
-  const { negativeList, positiveList } = useSentimentLists(startDate, endDate);
+  // Add state for which list is active
+  const [activeList, setActiveList] = useState<"positive" | "negative">("positive");
+  const listState = useSentimentList(activeList, startDate, endDate);
   const { keywordsList } = useKeywords();
   const { chartState, distributionState, periodAveragesState } = useChartData(
     selectedKeyword,
@@ -42,21 +46,22 @@ export default function Home() {
   // Effect to set default keyword AFTER positive list loads (if none selected yet)
   useEffect(() => {
     if (
-      !positiveList.loading &&
-      positiveList.data.length > 0 &&
+      activeList === "positive" &&
+      !listState.loading &&
+      listState.data.length > 0 &&
       !selectedKeyword &&
       !keywordsList.loading
     ) {
-      if (keywordsList.data.includes(positiveList.data[0].keyword)) {
-        setSelectedKeyword(positiveList.data[0].keyword);
+      if (keywordsList.data.includes(listState.data[0].keyword)) {
+        setSelectedKeyword(listState.data[0].keyword);
       } else {
         console.warn("Top positive game not found in distinct keywords list.");
       }
     }
-  }, [positiveList, selectedKeyword, keywordsList]);
+  }, [activeList, listState, selectedKeyword, keywordsList]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-start p-6 md:p-12 bg-gray-900 text-white">
+    <main className="flex flex-col items-center justify-start p-6 md:p-12 bg-gray-900 text-white">
       <h1 className="text-3xl md:text-4xl font-bold mb-8">
         Game Sentiment Dashboard
       </h1>
@@ -187,27 +192,65 @@ export default function Home() {
       </div>
 
       {/* Grid layout for the two lists (Now Below Chart) */}
-      <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SentimentList
-          // Use helper function for dynamic title
-          title={getListTitle("Top 20 Most Negative Games", startDate, endDate)}
-          data={negativeList.data}
-          loading={negativeList.loading}
-          error={negativeList.error}
-          metric="avg_neg"
-          colorClass="text-red-400"
-          onKeywordClick={setSelectedKeyword}
-        />
-        <SentimentList
-          // Use helper function for dynamic title
-          title={getListTitle("Top 20 Most Positive Games", startDate, endDate)}
-          data={positiveList.data}
-          loading={positiveList.loading}
-          error={positiveList.error}
-          metric="avg_pos"
-          colorClass="text-green-400"
-          onKeywordClick={setSelectedKeyword}
-        />
+      <div className="w-full max-w-6xl flex flex-col items-center gap-4">
+        <div className="flex items-center gap-2 mb-2 select-none">
+          <button
+            aria-label="Show Negative List"
+            className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50"
+            onClick={() => setActiveList("negative")}
+            disabled={activeList === "negative"}
+          >
+            <ChevronLeft className="w-6 h-6 text-red-400" />
+          </button>
+          <span className="text-lg font-semibold min-w-[120px] text-center">
+            {activeList === "positive" ? "Most Positive" : "Most Negative"}
+          </span>
+          <button
+            aria-label="Show Positive List"
+            className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50"
+            onClick={() => setActiveList("positive")}
+            disabled={activeList === "positive"}
+          >
+            <ChevronRight className="w-6 h-6 text-green-400" />
+          </button>
+        </div>
+        <div className="w-full h-[420px]">
+          <Carousel
+            selectedItem={activeList === "positive" ? 0 : 1}
+            onChange={idx => setActiveList(idx === 0 ? "positive" : "negative")}
+            showThumbs={false}
+            showStatus={false}
+            showArrows={false}
+            showIndicators={true}
+            swipeable={true}
+            emulateTouch={true}
+            infiniteLoop={false}
+            className="h-full"
+          >
+            <div className="h-[420px]">
+              <SentimentList
+                title={getListTitle("Top 20 Most Positive Games", startDate, endDate)}
+                data={listState.data}
+                loading={listState.loading}
+                error={listState.error}
+                metric="avg_pos"
+                colorClass="text-green-400"
+                onKeywordClick={setSelectedKeyword}
+              />
+            </div>
+            <div className="h-[420px]">
+              <SentimentList
+                title={getListTitle("Top 20 Most Negative Games", startDate, endDate)}
+                data={listState.data}
+                loading={listState.loading}
+                error={listState.error}
+                metric="avg_neg"
+                colorClass="text-red-400"
+                onKeywordClick={setSelectedKeyword}
+              />
+            </div>
+          </Carousel>
+        </div>
       </div>
     </main>
   );

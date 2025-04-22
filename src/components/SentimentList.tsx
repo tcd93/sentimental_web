@@ -23,7 +23,7 @@ const SentimentList: React.FC<SentimentListProps> = ({
 }) => {
   if (loading)
     return (
-      <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full">
+      <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-96 w-full">
         <div className="h-6 bg-gray-700 rounded w-1/2 mb-6 animate-pulse"></div>
         <div className="space-y-3">
           <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
@@ -35,25 +35,25 @@ const SentimentList: React.FC<SentimentListProps> = ({
     );
   if (error)
     return (
-      <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full flex items-center justify-center text-center text-red-500">
+      <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-96 w-full flex items-center justify-center text-center text-red-500">
         Error loading {title.toLowerCase()}: {error}
       </div>
     );
   if (!data || data.length === 0)
     return (
-      <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-96 w-full flex items-center justify-center text-center text-gray-500">
+      <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-96 w-full flex items-center justify-center text-center text-gray-500">
         No data available for {title.toLowerCase()}.
       </div>
     );
 
   return (
-    <div className="bg-gray-800 shadow-lg rounded-lg p-6">
+    <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-full flex flex-col">
       <h2 className={`text-2xl font-semibold mb-4 ${colorClass}`}>{title}</h2>
-      <ul className="space-y-3">
+      <ul className="space-y-3 flex-1 overflow-y-auto">
         {data.map((item, index) => (
           <li
             key={item.keyword}
-            className="p-4 bg-gray-700 rounded shadow flex justify-between items-center transition-colors duration-150 hover:bg-gray-600/80 cursor-pointer"
+            className="p-4 bg-gray-700 rounded-xl shadow flex justify-between items-center transition-colors duration-150 hover:bg-gray-600/80 cursor-pointer"
             onClick={() => onKeywordClick(item.keyword)}
           >
             <span className="font-medium text-lg">

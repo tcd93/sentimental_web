@@ -3,20 +3,22 @@ import { listReducer, ListAction } from "../reducers/listReducer";
 import { SentimentSummary } from "../types/sentiment";
 import { ApiResponse } from "@/app/api/response";
 
-export function useSentimentLists(startDate: string, endDate: string) {
-  const [negativeList, dispatchNegativeList] = useReducer(
-    listReducer<SentimentSummary>,
-    { data: [], loading: true, error: null }
-  );
-  const [positiveList, dispatchPositiveList] = useReducer(
-    listReducer<SentimentSummary>,
-    { data: [], loading: true, error: null }
-  );
+// Add type: "positive" | "negative" to only fetch one list at a time
+export function useSentimentList(
+  type: "positive" | "negative",
+  startDate: string,
+  endDate: string
+) {
+  const [list, dispatchList] = useReducer(listReducer<SentimentSummary>, {
+    data: [],
+    loading: true,
+    error: null,
+  });
 
   const fetchData = useCallback(
     async (
       url: string,
-      dispatch: React.Dispatch<ListAction<SentimentSummary>>,
+      dispatch: React.Dispatch<ListAction<SentimentSummary>>
     ) => {
       dispatch({ type: "loading" });
       try {
@@ -36,11 +38,12 @@ export function useSentimentLists(startDate: string, endDate: string) {
 
   useEffect(() => {
     const listParams = `?limit=20&startDate=${startDate}&endDate=${endDate}`;
-    const negUrl = `/api/sentiment${listParams}&metric=avg_neg&order=desc`;
-    const posUrl = `/api/sentiment${listParams}&metric=avg_pos&order=desc`;
-    fetchData(negUrl, dispatchNegativeList);
-    fetchData(posUrl, dispatchPositiveList);
-  }, [fetchData, startDate, endDate]);
+    const url =
+      type === "negative"
+        ? `/api/sentiment${listParams}&metric=avg_neg&order=desc`
+        : `/api/sentiment${listParams}&metric=avg_pos&order=desc`;
+    fetchData(url, dispatchList);
+  }, [fetchData, startDate, endDate, type]);
 
-  return { negativeList, positiveList };
+  return list;
 }
