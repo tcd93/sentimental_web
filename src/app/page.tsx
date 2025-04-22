@@ -9,6 +9,7 @@ import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
 import { listReducer, ListAction } from "@/lib/reducers/listReducer";
 import { TimeseriesDataPoint, SentimentSummary, DistributionDataPoint } from "@/lib/types/sentiment";
+import { ApiResponse } from "./api/response";
 
 export default function Home() {
   // State for lists
@@ -83,17 +84,11 @@ export default function Home() {
           }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const result = await response.json();
+        const result = (await response.json()) as ApiResponse<T>;
         if (result.error) {
           throw new Error(result.details || result.error);
         }
-        let extractedData: T[];
-        if (dataType === "keywords") {
-          extractedData = (result.keywords || []) as T[];
-        } else {
-          extractedData = (result.data || []) as T[];
-        }
-        dispatch({ type: "success", data: extractedData });
+        dispatch({ type: "success", data: result.data! });
       } catch (e) {
         dispatch({
           type: "error",

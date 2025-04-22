@@ -1,20 +1,20 @@
-import { NextResponse } from 'next/server';
 import { kv } from "@vercel/kv"; // Import Vercel KV client
-import { 
-    StartQueryExecutionCommand, 
-    GetQueryExecutionCommand, 
-    GetQueryResultsCommand, 
+import {
+    StartQueryExecutionCommand,
+    GetQueryExecutionCommand,
+    GetQueryResultsCommand,
     QueryExecutionState,
     type GetQueryResultsCommandOutput
 } from "@aws-sdk/client-athena";
 // Import shared config and clients
 import {
-    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION, 
+    ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION,
     CACHE_TTL_SECONDS, CACHE_TTL_EMPTY_SECONDS,
     ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS // <-- Import new constants
 } from '@/lib/config';
 import { athenaClient, delay } from '@/lib/awsClients';
 import { SentimentSummary, SentimentSummarySchema } from '@/lib/types/sentiment';
+import { jsonResponse } from '../response';
 
 // Helper function to parse Athena results using SDK types
 const parseAthenaResults = (results: GetQueryResultsCommandOutput): SentimentSummary[] => {
@@ -22,9 +22,9 @@ const parseAthenaResults = (results: GetQueryResultsCommandOutput): SentimentSum
     if (rows.length < 2) {
         return [];
     }
-    
+
     const columns = rows[0].Data?.map((datum) => datum.VarCharValue) ?? [];
-    
+
     const data = rows.slice(1).map((row) => {
         const parsed_row = row.Data?.reduce((obj, field, i) => {
             const key = columns[i] as keyof SentimentSummary;
@@ -46,7 +46,7 @@ const parseAthenaResults = (results: GetQueryResultsCommandOutput): SentimentSum
             }
             return obj;
         }, {} as Partial<SentimentSummary>);
-        
+
         return SentimentSummarySchema.parse(parsed_row);
     });
 
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     const metric = searchParams.get('metric') === 'avg_pos' ? 'avg_pos' : 'avg_neg';
     const order = searchParams.get('order') === 'asc' ? 'ASC' : 'DESC';
     const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const startDate = searchParams.get('startDate'); 
+    const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const specificKeyword = searchParams.get('keyword'); // <-- Get specific keyword param
 
@@ -66,10 +66,10 @@ export async function GET(request: Request) {
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!startDate || !endDate || !dateRegex.test(startDate) || !dateRegex.test(endDate)) {
         // Return error if dates are missing or invalid
-        return NextResponse.json({ error: "Missing or invalid required query parameters: startDate and endDate must be in YYYY-MM-DD format" }, { status: 400 });
+        return jsonResponse({ error: "Missing or invalid required query parameters: startDate and endDate must be in YYYY-MM-DD format" }, 400);
     }
     if (new Date(startDate) > new Date(endDate)) {
-        return NextResponse.json({ error: "Invalid date range: startDate cannot be after endDate" }, { status: 400 });
+        return jsonResponse({ error: "Invalid date range: startDate cannot be after endDate" }, 400);
     }
 
     // Validate metric
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
         const cachedData = await kv.get<SentimentSummary[]>(cacheKey);
         if (cachedData) {
             console.log(`Cache hit for key: ${cacheKey}`);
-            return NextResponse.json({ data: cachedData });
+            return jsonResponse({ data: cachedData });
         }
         console.log(`Cache miss for key: ${cacheKey}`);
 
@@ -99,10 +99,10 @@ export async function GET(request: Request) {
         ];
         // Add keyword filter if provided
         if (specificKeyword) {
-            const escapedKeyword = specificKeyword.replace(/'/g, "''"); 
+            const escapedKeyword = specificKeyword.replace(/'/g, "''");
             whereClauses.push(`keyword = '${escapedKeyword}'`);
         }
-        
+
         const query = `
         SELECT 
             keyword,
@@ -146,7 +146,7 @@ export async function GET(request: Request) {
         while (attempts < maxAttempts) {
             const getQueryExecutionCmd = new GetQueryExecutionCommand({ QueryExecutionId });
             const { QueryExecution } = await athenaClient.send(getQueryExecutionCmd);
-            
+
             status = QueryExecution?.Status?.State;
 
             if (status === QueryExecutionState.SUCCEEDED) {
@@ -156,11 +156,11 @@ export async function GET(request: Request) {
             }
 
             attempts++;
-            await delay(pollInterval); 
+            await delay(pollInterval);
         }
 
         if (status !== QueryExecutionState.SUCCEEDED) {
-             throw new Error(`Query ${QueryExecutionId} did not complete successfully after ${attempts} attempts. Final state: ${status}`);
+            throw new Error(`Query ${QueryExecutionId} did not complete successfully after ${attempts} attempts. Final state: ${status}`);
         }
 
         // Fetch results
@@ -177,12 +177,12 @@ export async function GET(request: Request) {
             console.log(`Cached result (TTL: ${ttl}s) for key: ${cacheKey}`);
         }
 
-        return NextResponse.json({ data: parsedData });
+        return jsonResponse({ data: parsedData });
 
     } catch (error) {
         console.error("Athena Query Error:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
         // Don't cache errors
-        return NextResponse.json({ error: "Failed to query Athena", details: errorMessage }, { status: 500 });
+        return jsonResponse({ error: "Failed to query Athena", details: errorMessage }, 500);
     }
 }

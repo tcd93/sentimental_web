@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { kv } from "@vercel/kv"; // Import Vercel KV client
 import {
     AthenaClient,
@@ -8,6 +7,7 @@ import {
     QueryExecutionState,
     type GetQueryResultsCommandOutput
 } from "@aws-sdk/client-athena";
+import { jsonResponse } from '../response';
 
 // Constants (reuse or centralize later)
 const ATHENA_DB = "sentimental";
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
         const cachedKeywords = await kv.get<string[]>(cacheKey);
         if (cachedKeywords) {
             console.log(`Cache hit for key: ${cacheKey}`);
-            return NextResponse.json({ keywords: cachedKeywords });
+            return jsonResponse({ data: cachedKeywords });
         }
         console.log(`Cache miss for key: ${cacheKey}`);
 
@@ -109,12 +109,12 @@ export async function GET(request: Request) {
             console.log(`No keywords found for key: ${cacheKey}. Not caching empty result.`);
         }
 
-        return NextResponse.json({ keywords });
+        return jsonResponse({ data: keywords });
 
     } catch (error) {
         console.error("Athena Keywords Query Error:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
         // Don't cache errors, just return them
-        return NextResponse.json({ error: "Failed to query Athena for keywords", details: errorMessage }, { status: 500 });
+        return jsonResponse({ error: "Failed to query Athena for keywords", details: errorMessage }, 500);
     }
-} 
+}

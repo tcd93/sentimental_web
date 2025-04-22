@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { kv } from "@vercel/kv";
 import {
     StartQueryExecutionCommand,
@@ -16,6 +15,7 @@ import {
 import { athenaClient, delay } from '@/lib/awsClients';
 import { DistributionDataPoint, DistributionDataPointSchema }
     from '@/lib/types/sentiment';
+import { jsonResponse } from '../../response';
 
 const parseAthenaDistributionResults = (results: GetQueryResultsCommandOutput): DistributionDataPoint[] => {
     const rows = results.ResultSet?.Rows ?? [];
@@ -51,16 +51,16 @@ export async function GET(request: Request) {
     const endDate = searchParams.get('endDate');
 
     if (!keyword) {
-        return NextResponse.json({ error: "Missing required query parameter: keyword" }, { status: 400 });
+        return jsonResponse({ error: "Missing required query parameter: keyword" }, 400);
     }
 
     // Strict Date Validation
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!startDate || !endDate || !dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-        return NextResponse.json({ error: "Missing or invalid required query parameters: startDate and endDate must be in YYYY-MM-DD format" }, { status: 400 });
+        return jsonResponse({ error: "Missing or invalid required query parameters: startDate and endDate must be in YYYY-MM-DD format" }, 400);
     }
     if (new Date(startDate) > new Date(endDate)) {
-        return NextResponse.json({ error: "Invalid date range: startDate cannot be after endDate" }, { status: 400 });
+        return jsonResponse({ error: "Invalid date range: startDate cannot be after endDate" }, 400);
     }
 
     // Fix regex for normalizing keyword
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
         const cachedData = await kv.get<DistributionDataPoint[]>(cacheKey);
         if (cachedData) {
             console.log(`Cache hit for key: ${cacheKey}`);
-            return NextResponse.json({ data: cachedData });
+            return jsonResponse({ data: cachedData });
         }
         console.log(`Cache miss for key: ${cacheKey}`);
 
@@ -142,11 +142,11 @@ export async function GET(request: Request) {
             console.log(`Cached result (TTL: ${ttl}s) for key: ${cacheKey}`);
         }
 
-        return NextResponse.json({ data: parsedData });
+        return jsonResponse({ data: parsedData });
 
     } catch (error) {
         console.error("Athena Distribution Query Error:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        return NextResponse.json({ error: "Failed to query Athena for sentiment distribution", details: errorMessage }, { status: 500 });
+        return jsonResponse({ error: "Failed to query Athena for sentiment distribution", details: errorMessage }, 500);
     }
 }
