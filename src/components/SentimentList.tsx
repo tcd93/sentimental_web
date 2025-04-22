@@ -1,18 +1,10 @@
 import React from "react";
-
-// Define an interface for the data structure returned by the API
-interface SentimentData {
-  keyword: string;
-  avg_pos: number;
-  avg_neg: number;
-  avg_mix: number;
-  count: number;
-}
+import { SentimentSummary } from "@/lib/types/sentiment"; // Adjust the import path as necessary
 
 // Define the interface for props including the click handler
 interface SentimentListProps {
   title: string;
-  data: SentimentData[];
+  data: SentimentSummary[];
   loading: boolean;
   error: string | null;
   metric: "avg_pos" | "avg_neg";
@@ -70,7 +62,7 @@ const SentimentList: React.FC<SentimentListProps> = ({
             <div className="text-right text-sm">
               <span className={`${colorClass} block`}>
                 {metric === "avg_neg" ? "Avg Negative" : "Avg Positive"}:{" "}
-                {item[metric].toFixed(4)}
+                {item[metric]?.toFixed(4)}
               </span>
               <span className="text-gray-400 block">Count: {item.count}</span>
             </div>

@@ -14,18 +14,7 @@ import {
     ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS // <-- Import new constants
 } from '@/lib/config';
 import { athenaClient, delay } from '@/lib/awsClients';
-import { z } from "zod";
-
-// Define Zod schema for the data structure
-const SentimentSummarySchema = z.object({
-    keyword: z.string(),
-    avg_pos: z.number().nullable(),
-    avg_neg: z.number().nullable(),
-    avg_mix: z.number().nullable(),
-    avg_neutral: z.number().nullable(),
-    count: z.number()
-});
-type SentimentSummary = z.infer<typeof SentimentSummarySchema>;
+import { SentimentSummary, SentimentSummarySchema } from '@/lib/types/sentiment';
 
 // Helper function to parse Athena results using SDK types
 const parseAthenaResults = (results: GetQueryResultsCommandOutput): SentimentSummary[] => {
@@ -196,4 +185,4 @@ export async function GET(request: Request) {
         // Don't cache errors
         return NextResponse.json({ error: "Failed to query Athena", details: errorMessage }, { status: 500 });
     }
-} 
+}

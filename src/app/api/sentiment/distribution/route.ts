@@ -7,7 +7,6 @@ import {
     QueryExecutionState,
     type GetQueryResultsCommandOutput
 } from "@aws-sdk/client-athena";
-import { z } from "zod";
 // Import shared config and clients
 import {
     ATHENA_DB, ATHENA_TABLE, ATHENA_OUTPUT_LOCATION,
@@ -15,16 +14,10 @@ import {
     ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS
 } from '@/lib/config';
 import { athenaClient, delay } from '@/lib/awsClients';
+import { DistributionDataPoint, DistributionDataPointSchema }
+    from '@/lib/types/sentiment';
 
-// Define Zod schema for the data structure
-const SentimentDistributionPointSchema = z.object({
-    sentiment: z.string(),
-    count: z.number()
-});
-
-type SentimentDistributionPoint = z.infer<typeof SentimentDistributionPointSchema>;
-
-const parseAthenaDistributionResults = (results: GetQueryResultsCommandOutput): SentimentDistributionPoint[] => {
+const parseAthenaDistributionResults = (results: GetQueryResultsCommandOutput): DistributionDataPoint[] => {
     const rows = results.ResultSet?.Rows ?? [];
     if (rows.length < 2) return [];
 
@@ -32,9 +25,9 @@ const parseAthenaDistributionResults = (results: GetQueryResultsCommandOutput): 
 
     const data = rows.slice(1).map((row) => {
         const parsed_row = row.Data?.reduce((obj, field, i) => {
-            const key = columns[i] as keyof SentimentDistributionPoint;
+            const key = columns[i] as keyof DistributionDataPoint;
             const value = field.VarCharValue;
-            
+
             switch (key) {
                 case 'sentiment':
                     obj[key] = value;
@@ -44,8 +37,8 @@ const parseAthenaDistributionResults = (results: GetQueryResultsCommandOutput): 
                     break;
             }
             return obj;
-        }, {} as Partial<SentimentDistributionPoint>);
-        return SentimentDistributionPointSchema.parse(parsed_row);
+        }, {} as Partial<DistributionDataPoint>);
+        return DistributionDataPointSchema.parse(parsed_row);
     });
 
     return data.filter((d) => d.count > 0);
@@ -76,7 +69,7 @@ export async function GET(request: Request) {
 
     try {
         // --- Check Cache First ---
-        const cachedData = await kv.get<SentimentDistributionPoint[]>(cacheKey);
+        const cachedData = await kv.get<DistributionDataPoint[]>(cacheKey);
         if (cachedData) {
             console.log(`Cache hit for key: ${cacheKey}`);
             return NextResponse.json({ data: cachedData });

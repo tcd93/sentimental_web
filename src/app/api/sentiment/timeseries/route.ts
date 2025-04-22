@@ -14,18 +14,7 @@ import {
     ATHENA_POLL_INTERVAL_MS, ATHENA_MAX_POLL_ATTEMPTS
 } from '@/lib/config';
 import { athenaClient, delay } from '@/lib/awsClients';
-import { z } from "zod";
-
-const TimeseriesDataPointSchema = z.object({
-    day: z.string(), // Expect day to be a string like 'YYYY-MM-DD'
-    avg_pos: z.number().nullable(),
-    avg_neg: z.number().nullable(),
-    avg_mix: z.number().nullable(),
-    avg_neutral: z.number().nullable(),
-    count: z.number(),
-});
-
-type TimeseriesDataPoint = z.infer<typeof TimeseriesDataPointSchema>;
+import { TimeseriesDataPoint, TimeseriesDataPointSchema } from '@/lib/types/sentiment';
 
 const parseAthenaTimeseriesResults = (
     results: GetQueryResultsCommandOutput
@@ -172,4 +161,4 @@ export async function GET(request: Request) {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
         return NextResponse.json({ error: "Failed to query Athena for timeseries", details: errorMessage }, { status: 500 });
     }
-} 
+}

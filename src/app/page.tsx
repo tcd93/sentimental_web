@@ -8,49 +8,16 @@ import SentimentDistributionChart from "@/components/SentimentDistributionChart"
 import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
 import { listReducer, ListAction } from "@/lib/reducers/listReducer";
-
-// Define an interface for the data structure returned by the API
-interface SentimentData {
-  keyword: string;
-  avg_pos: number;
-  avg_neg: number;
-  avg_mix: number;
-  count: number;
-}
-
-// Add interface for timeseries data points
-interface TimeseriesDataPoint {
-  day: string;
-  avg_pos?: number | null;
-  avg_neg?: number | null;
-  avg_mix?: number | null;
-  count?: number | null;
-}
-
-// Add interface for distribution data points
-interface DistributionDataPoint {
-  sentiment: string;
-  count: number;
-}
-
-// Interface for Overall Period Averages (matches SentimentSummary from API)
-interface PeriodAverages {
-  keyword: string; // Keep keyword for potential future use
-  avg_pos: number | null;
-  avg_neg: number | null;
-  avg_mix: number | null;
-  avg_neutral: number | null;
-  count: number;
-}
+import { TimeseriesDataPoint, SentimentSummary, DistributionDataPoint } from "@/lib/types/sentiment";
 
 export default function Home() {
   // State for lists
   const [negativeList, dispatchNegativeList] = useReducer(
-    listReducer<SentimentData>,
+    listReducer<SentimentSummary>,
     { data: [], loading: true, error: null }
   );
   const [positiveList, dispatchPositiveList] = useReducer(
-    listReducer<SentimentData>,
+    listReducer<SentimentSummary>,
     { data: [], loading: true, error: null }
   );
   const [keywordsList, dispatchKeywordsList] = useReducer(
@@ -75,10 +42,10 @@ export default function Home() {
 
   // State for Overall Period Averages (single object or null)
   const [selectedKeywordPeriodAverages, setSelectedKeywordPeriodAverages] =
-    useState<PeriodAverages | null>(null);
+    useState<SentimentSummary | null>(null);
   // State for temporary API result
   const [periodAveragesApiResult, setPeriodAveragesApiResult] = useState<
-    PeriodAverages[]
+    SentimentSummary[]
   >([]);
 
   // State for Drilldown
@@ -144,8 +111,8 @@ export default function Home() {
     const negUrl = `/api/sentiment${listParams}&metric=avg_neg&order=desc`;
     const posUrl = `/api/sentiment${listParams}&metric=avg_pos&order=desc`;
     const keywordsUrl = "/api/keywords";
-    fetchData<SentimentData>(negUrl, dispatchNegativeList, "sentiment");
-    fetchData<SentimentData>(posUrl, dispatchPositiveList, "sentiment");
+    fetchData<SentimentSummary>(negUrl, dispatchNegativeList, "sentiment");
+    fetchData<SentimentSummary>(posUrl, dispatchPositiveList, "sentiment");
     fetchData<string>(keywordsUrl, dispatchKeywordsList, "keywords");
   }, [fetchData, startDate, endDate]);
 
