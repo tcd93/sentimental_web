@@ -1,166 +1,49 @@
 "use client"; // Add this directive for client-side fetching and state
 
-import { useReducer, useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import SentimentChart from "@/components/SentimentChart"; // Import the new chart component
 import { KeywordSelector } from "@/components/KeywordSelector"; // Import the keyword selector
 import { Loader2 } from "lucide-react"; // <-- Import Loader2 icon
 import SentimentDistributionChart from "@/components/SentimentDistributionChart"; // <-- Import the new chart
 import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
-import { listReducer, ListAction } from "@/lib/reducers/listReducer";
-import { TimeseriesDataPoint, SentimentSummary, DistributionDataPoint } from "@/lib/types/sentiment";
-import { ApiResponse } from "./api/response";
+import { SentimentSummary } from "@/lib/types/sentiment";
+import { useSentimentLists } from "@/lib/hooks/useSentimentLists";
+import { useKeywords } from "@/lib/hooks/useKeywords";
+import { useChartData } from "@/lib/hooks/useChartData";
 
 export default function Home() {
-  // State for lists
-  const [negativeList, dispatchNegativeList] = useReducer(
-    listReducer<SentimentSummary>,
-    { data: [], loading: true, error: null }
-  );
-  const [positiveList, dispatchPositiveList] = useReducer(
-    listReducer<SentimentSummary>,
-    { data: [], loading: true, error: null }
-  );
-  const [keywordsList, dispatchKeywordsList] = useReducer(
-    listReducer<string>,
-    { data: [], loading: true, error: null }
-  );
-
   // State for keywords
-  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null); // Initially null
-
-  // State for chart data
-  const [chartState, dispatchChartState] = useReducer(
-    listReducer<TimeseriesDataPoint>,
-    { data: [], loading: false, error: null }
-  );
-
-  // State for Distribution Chart
-  const [distributionState, dispatchDistributionState] = useReducer(
-    listReducer<DistributionDataPoint>,
-    { data: [], loading: false, error: null }
-  );
-
-  // State for Overall Period Averages (single object or null)
-  const [selectedKeywordPeriodAverages, setSelectedKeywordPeriodAverages] =
-    useState<SentimentSummary | null>(null);
-  // State for temporary API result
-  const [periodAveragesApiResult, setPeriodAveragesApiResult] = useState<
-    SentimentSummary[]
-  >([]);
-
+  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   // State for Drilldown
-  const [drilldownSentiment, setDrilldownSentiment] = useState<string | null>(
-    null
-  );
-
+  const [drilldownSentiment, setDrilldownSentiment] = useState<string | null>(null);
   // State for Date Range
   const [startDate, setStartDate] = useState<string>(() => {
     const date = new Date();
-    date.setDate(date.getDate() - 30); // Default to 30 days ago
-    return date.toISOString().split("T")[0]; // Format as YYYY-MM-DD
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split("T")[0];
   });
   const [endDate, setEndDate] = useState<string>(() => {
     const date = new Date();
-    return date.toISOString().split("T")[0]; // Default to today
+    return date.toISOString().split("T")[0];
   });
 
-  // Refactored fetchData to dispatch to reducers
-  const fetchData = useCallback(
-    async <T,>(
-      url: string,
-      dispatch: React.Dispatch<ListAction<T>>,
-      dataType: "keywords" | "sentiment" | "timeseries" | "distribution"
-    ) => {
-      dispatch({ type: "loading" });
-      try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          if (
-            response.status === 400 &&
-            (dataType === "timeseries" || dataType === "distribution")
-          ) {
-            throw new Error("Please select a keyword and date range.");
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const result = (await response.json()) as ApiResponse<T>;
-        if (result.error) {
-          throw new Error(result.details || result.error);
-        }
-        dispatch({ type: "success", data: result.data! });
-      } catch (e) {
-        dispatch({
-          type: "error",
-          error: e instanceof Error ? e.message : "Failed to fetch data",
-        });
-        console.error(`Fetch Error (${url}):`, e);
-      }
-    },
-    []
-  );
+  // Use custom hooks for data fetching and state
+  const { negativeList, positiveList } = useSentimentLists(startDate, endDate);
+  const { keywordsList } = useKeywords();
+  const { chartState, distributionState, periodAveragesApiResult } = useChartData(selectedKeyword, startDate, endDate);
 
-  // Effect to fetch lists and keywords
-  useEffect(() => {
-    const listParams = `?limit=20&startDate=${startDate}&endDate=${endDate}`;
-    const negUrl = `/api/sentiment${listParams}&metric=avg_neg&order=desc`;
-    const posUrl = `/api/sentiment${listParams}&metric=avg_pos&order=desc`;
-    const keywordsUrl = "/api/keywords";
-    fetchData<SentimentSummary>(negUrl, dispatchNegativeList, "sentiment");
-    fetchData<SentimentSummary>(posUrl, dispatchPositiveList, "sentiment");
-    fetchData<string>(keywordsUrl, dispatchKeywordsList, "keywords");
-  }, [fetchData, startDate, endDate]);
+  // State for Overall Period Averages (single object or null)
+  const [selectedKeywordPeriodAverages, setSelectedKeywordPeriodAverages] = useState<SentimentSummary | null>(null);
 
-  // Effect to fetch chart, distribution, and period averages array data
+  // Update single period average object when the API array result changes
   useEffect(() => {
-    dispatchChartState({ type: "success", data: [] });
-    dispatchDistributionState({ type: "success", data: [] });
-    setPeriodAveragesApiResult([]);
-    setSelectedKeywordPeriodAverages(null);
-    setDrilldownSentiment(null);
-    if (selectedKeyword && startDate && endDate) {
-      const baseParams = `keyword=${encodeURIComponent(
-        selectedKeyword
-      )}&startDate=${startDate}&endDate=${endDate}`;
-      const timeseriesUrl = `/api/sentiment/timeseries?${baseParams}`;
-      const distributionUrl = `/api/sentiment/distribution?${baseParams}`;
-      const periodAveragesUrl = `/api/sentiment?${baseParams}&limit=1`;
-      fetchData<TimeseriesDataPoint>(
-        timeseriesUrl,
-        dispatchChartState,
-        "timeseries"
-      );
-      fetchData<DistributionDataPoint>(
-        distributionUrl,
-        dispatchDistributionState,
-        "distribution"
-      );
-      // Period averages: keep as is for now
-      fetch(periodAveragesUrl)
-        .then((res) => res.json())
-        .then((result) => setPeriodAveragesApiResult(result.data || []))
-        .catch(() => setPeriodAveragesApiResult([]));
+    if (periodAveragesApiResult && periodAveragesApiResult.data.length > 0) {
+      setSelectedKeywordPeriodAverages(periodAveragesApiResult.data[0]);
     } else {
-      const errorMsg =
-        selectedKeyword && (!startDate || !endDate)
-          ? "Please select both a start and end date."
-          : null;
-      if (errorMsg) {
-        dispatchChartState({ type: "error", error: errorMsg });
-        dispatchDistributionState({ type: "error", error: errorMsg });
-      }
-    }
-  }, [selectedKeyword, startDate, endDate, fetchData]);
-
-  // New Effect: Update single period average object when the API array result changes
-  useEffect(() => {
-    if (periodAveragesApiResult && periodAveragesApiResult.length > 0) {
-      setSelectedKeywordPeriodAverages(periodAveragesApiResult[0]);
-    } else {
-      // Ensure it's cleared if the API returns an empty array or undefined
       setSelectedKeywordPeriodAverages(null);
     }
-  }, [periodAveragesApiResult]); // Run whenever the temporary array updates
+  }, [periodAveragesApiResult]);
 
   // Effect to set default keyword AFTER positive list loads (if none selected yet)
   useEffect(() => {
@@ -170,15 +53,13 @@ export default function Home() {
       !selectedKeyword &&
       !keywordsList.loading
     ) {
-      // Ensure keywords have also loaded to avoid race conditions if user clicks fast
       if (keywordsList.data.includes(positiveList.data[0].keyword)) {
         setSelectedKeyword(positiveList.data[0].keyword);
       } else {
-        // Fallback if top positive game isn't in the keyword list for some reason
         console.warn("Top positive game not found in distinct keywords list.");
       }
     }
-  }, [positiveList, selectedKeyword, keywordsList]); // Add dependencies
+  }, [positiveList, selectedKeyword, keywordsList]);
 
   // Helper function to format date to YYYY-MM-DD
   const formatDateISO = (date: Date): string => {
