@@ -33,8 +33,8 @@ export default function Home() {
   });
 
   // Use custom hooks for data fetching and state
-  // Add state for which list is active
   const [activeList, setActiveList] = useState<"positive" | "negative">("positive");
+  const TRANSITION_DURATION = 350; // ms, match carousel CSS
   const listState = useSentimentList(activeList, startDate, endDate);
   const { keywordsList } = useKeywords();
   const { chartState, distributionState, periodAveragesState } = useChartData(
@@ -225,6 +225,7 @@ export default function Home() {
             swipeable={true}
             emulateTouch={true}
             infiniteLoop={false}
+            transitionTime={TRANSITION_DURATION}
             className="h-full"
           >
             <div className="h-[420px]">

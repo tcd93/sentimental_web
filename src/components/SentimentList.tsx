@@ -49,7 +49,7 @@ const SentimentList: React.FC<SentimentListProps> = ({
   return (
     <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-full flex flex-col">
       <h2 className={`text-2xl font-semibold mb-4 ${colorClass}`}>{title}</h2>
-      <ul className="space-y-3 flex-1 overflow-y-auto">
+      <ul className="space-y-3 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 scrollbar-thumb-rounded-full scrollbar-track-rounded-full">
         {data.map((item, index) => (
           <li
             key={item.keyword}
