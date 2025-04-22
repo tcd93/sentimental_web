@@ -24,7 +24,6 @@ interface KeywordSelectorProps {
   selectedKeyword: string | null;
   onKeywordSelect: (keyword: string | null) => void;
   loading: boolean;
-  className?: string;
 }
 
 export function KeywordSelector({
@@ -32,13 +31,12 @@ export function KeywordSelector({
   selectedKeyword,
   onKeywordSelect,
   loading,
-  className,
 }: KeywordSelectorProps) {
   const [open, setOpen] = React.useState(false)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild className={cn(className)}>
+      <PopoverTrigger asChild className="z-10">
         <Button
           variant="outline"
           role="combobox"
@@ -49,7 +47,7 @@ export function KeywordSelector({
               "bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-100",
               "focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900",
               "text-sm",
-              className
+              "z-10"
           )}
           disabled={loading || keywords.length === 0}
         >

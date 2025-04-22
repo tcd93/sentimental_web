@@ -293,7 +293,6 @@ export default function Home() {
           selectedKeyword={selectedKeyword}
           onKeywordSelect={setSelectedKeyword}
           loading={keywordsList.loading}
-          className="z-10" // Ensure dropdown appears above chart if overlapping
         />
         {/* Display errors from keyword loading */}
         {keywordsList.error && (
