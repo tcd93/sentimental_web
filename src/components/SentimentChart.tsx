@@ -30,7 +30,10 @@ const SENTIMENT_COLORS: { [key: string]: string } = {
   UNKNOWN: '#9CA3AF'   
 };
 
-const SentimentChart: React.FC<SentimentChartProps> = ({ data, keyword, drilldownSentiment }) => {
+/**
+ * Timeseries chart for sentiment data.
+ */
+const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({ data, keyword, drilldownSentiment }) => {
   if (!data || data.length === 0) {
     return <div className="p-4 text-center text-gray-500">No timeseries data available for &quot;{keyword}&quot;.</div>;
   }
@@ -113,4 +116,4 @@ const SentimentChart: React.FC<SentimentChartProps> = ({ data, keyword, drilldow
   );
 };
 
-export default SentimentChart;
+export default SentimentTimeSeriesChart;

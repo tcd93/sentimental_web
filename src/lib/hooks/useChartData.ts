@@ -12,7 +12,7 @@ export function useChartData(selectedKeyword: string | null, startDate: string, 
     listReducer<DistributionDataPoint>,
     { data: [], loading: false, error: null }
   );
-  const [periodAveragesApiResult, setPeriodAveragesApiResult] = useReducer(
+  const [periodAveragesState, setPeriodAveragesState] = useReducer(
     listReducer<SentimentSummary>,
     { data: [], loading: false, error: null }
   );
@@ -20,7 +20,7 @@ export function useChartData(selectedKeyword: string | null, startDate: string, 
   useEffect(() => {
     dispatchChartState({ type: "success", data: [] });
     dispatchDistributionState({ type: "success", data: [] });
-    setPeriodAveragesApiResult({ type: "success", data: [] });
+    setPeriodAveragesState({ type: "success", data: [] });
     if (selectedKeyword && startDate && endDate) {
       const baseParams = `keyword=${encodeURIComponent(selectedKeyword)}&startDate=${startDate}&endDate=${endDate}`;
       const timeseriesUrl = `/api/sentiment/timeseries?${baseParams}`;
@@ -52,14 +52,14 @@ export function useChartData(selectedKeyword: string | null, startDate: string, 
       })();
       // Period averages
       (async () => {
-        setPeriodAveragesApiResult({ type: "loading" });
+        setPeriodAveragesState({ type: "loading" });
         try {
           const response = await fetch(periodAveragesUrl);
           const result = (await response.json()) as ApiResponse<SentimentSummary>;
           if (result.error) throw new Error(result.details || result.error);
-          setPeriodAveragesApiResult({ type: "success", data: result.data! });
+          setPeriodAveragesState({ type: "success", data: result.data! });
         } catch (e) {
-          setPeriodAveragesApiResult({ type: "error", error: e instanceof Error ? e.message : "Failed to fetch period averages" });
+          setPeriodAveragesState({ type: "error", error: e instanceof Error ? e.message : "Failed to fetch period averages" });
         }
       })();
     } else {
@@ -71,5 +71,5 @@ export function useChartData(selectedKeyword: string | null, startDate: string, 
     }
   }, [selectedKeyword, startDate, endDate]);
 
-  return { chartState, distributionState, periodAveragesApiResult };
+  return { chartState, distributionState, periodAveragesState };
 }

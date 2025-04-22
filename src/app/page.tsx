@@ -1,13 +1,12 @@
 "use client"; // Add this directive for client-side fetching and state
 
 import { useState, useEffect } from "react";
-import SentimentChart from "@/components/SentimentChart"; // Import the new chart component
+import SentimentTimeSeriesChart from "@/components/SentimentChart"; // Import the new chart component
 import { KeywordSelector } from "@/components/KeywordSelector"; // Import the keyword selector
 import { Loader2 } from "lucide-react"; // <-- Import Loader2 icon
 import SentimentDistributionChart from "@/components/SentimentDistributionChart"; // <-- Import the new chart
 import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
-import { SentimentSummary } from "@/lib/types/sentiment";
 import { useSentimentLists } from "@/lib/hooks/useSentimentLists";
 import { useKeywords } from "@/lib/hooks/useKeywords";
 import { useChartData } from "@/lib/hooks/useChartData";
@@ -17,7 +16,9 @@ export default function Home() {
   // State for keywords
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   // State for Drilldown
-  const [drilldownSentiment, setDrilldownSentiment] = useState<string | null>(null);
+  const [drilldownSentiment, setDrilldownSentiment] = useState<string | null>(
+    null
+  );
   // State for Date Range
   const [startDate, setStartDate] = useState<string>(() => {
     const date = new Date();
@@ -32,19 +33,11 @@ export default function Home() {
   // Use custom hooks for data fetching and state
   const { negativeList, positiveList } = useSentimentLists(startDate, endDate);
   const { keywordsList } = useKeywords();
-  const { chartState, distributionState, periodAveragesApiResult } = useChartData(selectedKeyword, startDate, endDate);
-
-  // State for Overall Period Averages (single object or null)
-  const [selectedKeywordPeriodAverages, setSelectedKeywordPeriodAverages] = useState<SentimentSummary | null>(null);
-
-  // Update single period average object when the API array result changes
-  useEffect(() => {
-    if (periodAveragesApiResult && periodAveragesApiResult.data.length > 0) {
-      setSelectedKeywordPeriodAverages(periodAveragesApiResult.data[0]);
-    } else {
-      setSelectedKeywordPeriodAverages(null);
-    }
-  }, [periodAveragesApiResult]);
+  const { chartState, distributionState, periodAveragesState } = useChartData(
+    selectedKeyword,
+    startDate,
+    endDate
+  );
 
   // Effect to set default keyword AFTER positive list loads (if none selected yet)
   useEffect(() => {
@@ -93,7 +86,9 @@ export default function Home() {
           endDate={endDate}
           setStartDate={setStartDate}
           setEndDate={setEndDate}
-          handleDatePreset={(preset) => handleDatePreset(preset, setStartDate, setEndDate)}
+          handleDatePreset={(preset) =>
+            handleDatePreset(preset, setStartDate, setEndDate)
+          }
         />
       </div>
 
@@ -118,7 +113,7 @@ export default function Home() {
             startDate &&
             endDate &&
             chartState.data.length > 0 && (
-              <SentimentChart
+              <SentimentTimeSeriesChart
                 data={chartState.data}
                 keyword={selectedKeyword}
                 // Pass drilldown state
@@ -163,11 +158,12 @@ export default function Home() {
             selectedKeyword &&
             startDate &&
             endDate &&
-            distributionState.data.length > 0 && (
+            distributionState.data.length > 0 &&
+            periodAveragesState.data.length > 0 && (
               <SentimentDistributionChart
                 data={distributionState.data}
                 keyword={selectedKeyword}
-                periodAverages={selectedKeywordPeriodAverages}
+                periodAverages={periodAveragesState.data[0]}
                 // Pass state and setter for drilldown
                 selectedSentiment={drilldownSentiment}
                 onSentimentSelect={setDrilldownSentiment}
