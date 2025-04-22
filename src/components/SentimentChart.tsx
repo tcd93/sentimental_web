@@ -12,19 +12,10 @@ import {
   ResponsiveContainer,
   LegendType
 } from 'recharts';
-
-// Interface for the data points expected by the chart
-interface ChartDataPoint {
-  day: string;         // 'YYYY-MM-DD'
-  avg_pos?: number | null;
-  avg_neg?: number | null;
-  avg_mix?: number | null;
-  avg_neutral?: number | null;
-  count?: number | null;
-}
+import { TimeseriesDataPoint } from "@/lib/types/sentiment";
 
 interface SentimentChartProps {
-  data: ChartDataPoint[];
+  data: TimeseriesDataPoint[];
   keyword: string;
   drilldownSentiment: string | null;
 }
@@ -70,7 +61,7 @@ const SentimentChart: React.FC<SentimentChartProps> = ({ data, keyword, drilldow
       : [drilldownSentiment.toUpperCase()];
 
   // Helper function to get dataKey from sentiment name
-  const getDataKey = (sentiment: string): keyof ChartDataPoint | null => {
+  const getDataKey = (sentiment: string): keyof TimeseriesDataPoint | null => {
       switch(sentiment.toUpperCase()) {
           case 'POSITIVE': return 'avg_pos';
           case 'NEGATIVE': return 'avg_neg';
@@ -122,4 +113,4 @@ const SentimentChart: React.FC<SentimentChartProps> = ({ data, keyword, drilldow
   );
 };
 
-export default SentimentChart; 
+export default SentimentChart;

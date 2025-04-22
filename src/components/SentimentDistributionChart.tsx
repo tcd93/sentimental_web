@@ -12,24 +12,12 @@ import {
   LegendType
 } from 'recharts';
 import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
-
-interface SentimentDistributionDataPoint {
-  sentiment: string;
-  count: number;
-}
-
-// Re-define PeriodAverages here or import from page.tsx if structured for sharing
-interface PeriodAverages {
-    avg_pos: number | null;
-    avg_neg: number | null;
-    avg_mix: number | null;
-    avg_neutral: number | null;
-}
+import { SentimentSummary } from "@/lib/types/sentiment";
 
 interface SentimentDistributionChartProps {
-  data: SentimentDistributionDataPoint[];
+  data: import("@/lib/types/sentiment").DistributionDataPoint[];
   keyword: string;
-  periodAverages: PeriodAverages | null;
+  periodAverages: SentimentSummary | null;
   selectedSentiment: string | null;
   onSentimentSelect: (sentiment: string | null) => void;
 }
@@ -76,7 +64,7 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   const renderCustomTooltip = (props: TooltipProps<ValueType, NameType>) => {
     const { active, payload } = props;
     if (active && payload && payload.length) {
-      const entryPayload = payload[0].payload as SentimentDistributionDataPoint;
+      const entryPayload = payload[0].payload as import("@/lib/types/sentiment").DistributionDataPoint;
       const percentage = total > 0 ? ((entryPayload.count / total) * 100).toFixed(1) : 0;
       
       // Get the corresponding average score
@@ -113,7 +101,7 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   }));
 
   // Handle clicks on Pie slices
-  const handlePieClick = (data: SentimentDistributionDataPoint) => {
+  const handlePieClick = (data: import("@/lib/types/sentiment").DistributionDataPoint) => {
       const clickedSentiment = data?.sentiment?.toUpperCase();
       if (!clickedSentiment) return;
       
@@ -161,4 +149,4 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   );
 };
 
-export default SentimentDistributionChart; 
+export default SentimentDistributionChart;
