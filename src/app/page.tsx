@@ -11,8 +11,8 @@ import { useSentimentList } from "@/lib/hooks/useSentimentLists";
 import { useKeywords } from "@/lib/hooks/useKeywords";
 import { useChartData } from "@/lib/hooks/useChartData";
 import { handleDatePreset, getListTitle } from "@/lib/utils";
-import { Carousel } from 'react-responsive-carousel';
-import 'react-responsive-carousel/lib/styles/carousel.min.css';
+import { Carousel } from "react-responsive-carousel";
+import "react-responsive-carousel/lib/styles/carousel.min.css";
 
 export default function Home() {
   // State for keywords
@@ -33,9 +33,11 @@ export default function Home() {
   });
 
   // Use custom hooks for data fetching and state
-  const [activeList, setActiveList] = useState<"positive" | "negative">("positive");
-  const TRANSITION_DURATION = 350; // ms, match carousel CSS
-  const listState = useSentimentList(activeList, startDate, endDate);
+  const [activeList, setActiveList] = useState<"positive" | "negative">(
+    "positive"
+  );
+  const postiveListState = useSentimentList("positive", startDate, endDate);
+  const negativeListState = useSentimentList("negative", startDate, endDate);
   const { keywordsList } = useKeywords();
   const { chartState, distributionState, periodAveragesState } = useChartData(
     selectedKeyword,
@@ -47,18 +49,18 @@ export default function Home() {
   useEffect(() => {
     if (
       activeList === "positive" &&
-      !listState.loading &&
-      listState.data.length > 0 &&
+      !postiveListState.loading &&
+      postiveListState.data.length > 0 &&
       !selectedKeyword &&
       !keywordsList.loading
     ) {
-      if (keywordsList.data.includes(listState.data[0].keyword)) {
-        setSelectedKeyword(listState.data[0].keyword);
+      if (keywordsList.data.includes(postiveListState.data[0].keyword)) {
+        setSelectedKeyword(postiveListState.data[0].keyword);
       } else {
         console.warn("Top positive game not found in distinct keywords list.");
       }
     }
-  }, [activeList, listState, selectedKeyword, keywordsList]);
+  }, [activeList, postiveListState, selectedKeyword, keywordsList]);
 
   return (
     <main className="flex flex-col items-center justify-start p-6 md:p-12 bg-gray-900 text-white">
@@ -217,7 +219,9 @@ export default function Home() {
         <div className="w-full h-[420px]">
           <Carousel
             selectedItem={activeList === "positive" ? 0 : 1}
-            onChange={idx => setActiveList(idx === 0 ? "positive" : "negative")}
+            onChange={(idx) =>
+              setActiveList(idx === 0 ? "positive" : "negative")
+            }
             showThumbs={false}
             showStatus={false}
             showArrows={false}
@@ -225,15 +229,19 @@ export default function Home() {
             swipeable={true}
             emulateTouch={true}
             infiniteLoop={false}
-            transitionTime={TRANSITION_DURATION}
+            transitionTime={400}
             className="h-full"
           >
             <div className="h-[420px]">
               <SentimentList
-                title={getListTitle("Top 20 Most Positive Games", startDate, endDate)}
-                data={listState.data}
-                loading={listState.loading}
-                error={listState.error}
+                title={getListTitle(
+                  "Top 20 Most Positive Games",
+                  startDate,
+                  endDate
+                )}
+                data={postiveListState.data}
+                loading={postiveListState.loading}
+                error={postiveListState.error}
                 metric="avg_pos"
                 colorClass="text-green-400"
                 onKeywordClick={setSelectedKeyword}
@@ -241,10 +249,14 @@ export default function Home() {
             </div>
             <div className="h-[420px]">
               <SentimentList
-                title={getListTitle("Top 20 Most Negative Games", startDate, endDate)}
-                data={listState.data}
-                loading={listState.loading}
-                error={listState.error}
+                title={getListTitle(
+                  "Top 20 Most Negative Games",
+                  startDate,
+                  endDate
+                )}
+                data={negativeListState.data}
+                loading={negativeListState.loading}
+                error={negativeListState.error}
                 metric="avg_neg"
                 colorClass="text-red-400"
                 onKeywordClick={setSelectedKeyword}
