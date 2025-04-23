@@ -197,10 +197,10 @@ export default function Home() {
       <div className="w-full max-w-6xl flex flex-col items-center gap-4">
         <div className="flex items-center gap-2 mb-2 select-none">
           <button
-            aria-label="Show Negative List"
+            aria-label="Show Positive List"
             className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50"
-            onClick={() => setActiveList("negative")}
-            disabled={activeList === "negative"}
+            onClick={() => setActiveList("positive")}
+            disabled={activeList === "positive"}
           >
             <ChevronLeft className="w-6 h-6 text-red-400" />
           </button>
@@ -208,10 +208,10 @@ export default function Home() {
             {activeList === "positive" ? "Most Positive" : "Most Negative"}
           </span>
           <button
-            aria-label="Show Positive List"
+            aria-label="Show Negative List"
             className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50"
-            onClick={() => setActiveList("positive")}
-            disabled={activeList === "positive"}
+            onClick={() => setActiveList("negative")}
+            disabled={activeList === "negative"}
           >
             <ChevronRight className="w-6 h-6 text-green-400" />
           </button>
