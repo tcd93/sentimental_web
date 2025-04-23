@@ -230,6 +230,9 @@ export default function Home() {
             emulateTouch={true}
             infiniteLoop={false}
             transitionTime={400}
+            // enable mobile swipe
+            preventMovementUntilSwipeScrollTolerance={true}
+            swipeScrollTolerance={50}
             className="h-full"
           >
             <div className="h-[420px]">
