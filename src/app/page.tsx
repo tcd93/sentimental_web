@@ -63,17 +63,17 @@ export default function Home() {
   }, [activeList, postiveListState, selectedKeyword, keywordsList]);
 
   return (
-    <main className="flex flex-col items-center justify-start p-6 md:p-12 bg-gray-900 text-white">
+    <main className="w-full min-h-screen flex flex-col items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white overflow-x-hidden">
       <h1 className="text-3xl md:text-4xl font-bold mb-8">
         Game Sentiment Dashboard
       </h1>
 
       {/* Add Title for Controls Section */}
-      <div className="w-full max-w-6xl mb-2 text-center">
+      <div className="w-full max-w-full md:max-w-screen-lg mb-2 text-center">
         <h2 className="text-lg font-semibold text-gray-400">Filters</h2>
       </div>
       {/* Controls Section: Keyword Selector and Date Range */}
-      <div className="w-full max-w-6xl mb-6 flex flex-col md:flex-row justify-center items-center gap-4 md:gap-6 flex-wrap">
+      <div className="w-full max-w-full md:max-w-screen-lg mb-6 flex flex-col md:flex-row justify-center items-center gap-4 md:gap-6 flex-wrap">
         <KeywordSelector
           keywords={keywordsList.data}
           selectedKeyword={selectedKeyword}
@@ -100,7 +100,7 @@ export default function Home() {
       </div>
 
       {/* Charts Section - Grid Layout */}
-      <div className="w-full max-w-6xl mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="w-full max-w-full md:max-w-screen-lg mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Line Chart Container - Add fixed height */}
         <div className="lg:col-span-2 h-[374px]">
           {/* Line Chart display logic (using chartLoading, chartError, chartData) */}
@@ -194,7 +194,7 @@ export default function Home() {
       </div>
 
       {/* Grid layout for the two lists (Now Below Chart) */}
-      <div className="w-full max-w-6xl flex flex-col items-center gap-4">
+      <div className="w-full max-w-full md:max-w-screen-lg flex flex-col items-center gap-4">
         <div className="flex items-center gap-2 mb-2 select-none">
           <button
             aria-label="Show Positive List"
