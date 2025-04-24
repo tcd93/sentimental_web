@@ -11,15 +11,18 @@ import {
   TooltipProps,
   LegendType
 } from 'recharts';
+import { Loader2 } from 'lucide-react';
 import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { SentimentSummary, DistributionDataPoint } from "@/lib/types/sentiment";
+import { ListState } from '@/lib/reducers/listReducer';
 
 interface SentimentDistributionChartProps {
-  data: DistributionDataPoint[];
+  distributionState: ListState<DistributionDataPoint>;
   keyword: string;
   periodAverages: SentimentSummary | null;
   selectedSentiment: string | null;
   onSentimentSelect: (sentiment: string | null) => void;
+  chartHeight?: number;
 }
 
 // Define colors for each sentiment category
@@ -34,18 +37,58 @@ const SENTIMENT_COLORS: { [key: string]: string } = {
 // Define fixed order for legend and sorting
 const SENTIMENT_ORDER = ['POSITIVE', 'NEGATIVE', 'NEUTRAL', 'MIXED'];
 
-const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({ 
-  data, 
-  keyword, 
-  periodAverages, 
+const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
+  distributionState,
+  keyword,
+  periodAverages,
   selectedSentiment,
-  onSentimentSelect
+  onSentimentSelect,
+  chartHeight = 280 // Default height if not provided
 }) => {
+  const { data, loading, error } = distributionState;
 
-  if (!data || data.length === 0) {
-    // You might want a different message or a placeholder visual here
-    return <div className="text-center text-gray-500 py-4">No distribution data available for &quot;{keyword}&quot;.</div>;
+  // --- Loading State ---
+  if (loading) {
+    return (
+      <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col items-center justify-center">
+        <h3 className="text-xl font-semibold mb-4 text-blue-300">Distribution</h3>
+        <div style={{ minHeight: chartHeight }} className="flex items-center justify-center w-full">
+           <Loader2 className="h-10 w-10 text-blue-400 animate-spin" />
+        </div>
+      </div>
+    );
   }
+
+  // --- Error State ---
+  if (error) {
+    return (
+      <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col items-center justify-center text-center">
+        <h3 className="text-xl font-semibold mb-4 text-blue-300">Distribution</h3>
+        <div style={{ minHeight: chartHeight }} className="flex flex-col items-center justify-center w-full">
+          <p className="text-red-500">Error loading distribution:</p>
+          <p className="text-red-400 text-sm mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Empty/No Data State ---
+  if (!keyword || !data || data.length === 0) {
+    return (
+      <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col items-center justify-center text-center">
+         <h3 className="text-xl font-semibold mb-4 text-blue-300">Distribution</h3>
+         <div style={{ minHeight: chartHeight }} className="flex items-center justify-center w-full">
+           <p className="text-gray-500">
+            {!keyword
+              ? "Select a keyword to see distribution."
+              : `No distribution data available for "${keyword}".`}
+           </p>
+         </div>
+      </div>
+    );
+  }
+
+  // --- Success State (Data available) ---
 
   // Sort data according to the fixed order
   const sortedData = [...data].sort((a, b) => {
@@ -116,8 +159,8 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   return (
     <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col">
       <h3 className="text-xl font-semibold mb-4 text-blue-300 text-center">Distribution</h3>
-      <div className="flex-grow min-h-0">
-          <ResponsiveContainer width="100%" height={280}>
+      <div>
+          <ResponsiveContainer width="100%" height={chartHeight}>
             <PieChart>
               <Pie
                 data={sortedData}

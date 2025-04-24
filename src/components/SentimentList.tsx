@@ -1,29 +1,31 @@
 import React from "react";
-import { SentimentControversy, SentimentSummary } from "@/lib/types/sentiment"; // Adjust the import path as necessary
+import { SentimentControversy, SentimentSummary } from "@/lib/types/sentiment";
+import { ListState } from '@/lib/reducers/listReducer';
 
 // Define the interface for props including the click handler
 interface SentimentListProps {
   title: string;
-  data: SentimentSummary[] | SentimentControversy[];
-  loading: boolean;
-  error: string | null;
+  listState: ListState<SentimentSummary | SentimentControversy>; // Replace separate props with ListState
   metric: "avg_pos" | "avg_neg" | "volatility";
   colorClass: string;
   onKeywordClick: (keyword: string) => void;
+  listHeight?: number;
 }
 
 const SentimentList: React.FC<SentimentListProps> = ({
   title,
-  data,
-  loading,
-  error,
+  listState, // Use listState instead of separate props
   metric,
   colorClass,
   onKeywordClick,
+  listHeight = 360
 }) => {
+  const containerStyle = { height: listHeight };
+  const { data, loading, error } = listState; // Destructure from listState
+
   if (loading)
     return (
-      <div className="bg-gray-800 shadow-lg rounded-2xl pl-6 pr-6 pt-6 h-full w-full flex flex-col">
+      <div style={containerStyle} className="bg-gray-800 shadow-lg rounded-2xl pl-6 pr-6 pt-6 w-full flex flex-col">
         <div className="h-12 bg-gray-700 rounded-xl mb-6 animate-pulse"></div>
         <div className="h-18 bg-gray-700 rounded-xl animate-pulse mb-3"></div>
         <div className="h-18 bg-gray-700 rounded-xl animate-pulse mb-3"></div>
@@ -34,19 +36,19 @@ const SentimentList: React.FC<SentimentListProps> = ({
     );
   if (error)
     return (
-      <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-96 w-full flex items-center justify-center text-center text-red-500">
+      <div style={containerStyle} className="bg-gray-800 shadow-lg rounded-2xl p-6 w-full flex items-center justify-center text-center text-red-500">
         Error loading {title.toLowerCase()}: {error}
       </div>
     );
   if (!data || data.length === 0)
     return (
-      <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-96 w-full flex items-center justify-center text-center text-gray-500">
+      <div style={containerStyle} className="bg-gray-800 shadow-lg rounded-2xl p-6 w-full flex items-center justify-center text-center text-gray-500">
         No data available for {title.toLowerCase()}.
       </div>
     );
 
   return (
-    <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-full flex flex-col overflow-y-auto scrollbar scrollbar-track-transparent scrollbar-thumb-gray-600">
+    <div style={containerStyle} className="bg-gray-800 shadow-lg rounded-2xl p-6 w-full flex flex-col overflow-y-auto scrollbar scrollbar-track-transparent scrollbar-thumb-gray-600">
       <h2 className={`text-xl font-semibold mb-4 ${colorClass}`}>{title}</h2>
       <ul className="space-y-3 flex-1">
         {data.map((item, index) => {

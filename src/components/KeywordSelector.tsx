@@ -18,21 +18,40 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover" // Assuming you have Popover components
+import { ListState } from '@/lib/reducers/listReducer'
 
 interface KeywordSelectorProps {
-  keywords: string[];
+  keywordsState: ListState<string>; // Replace separate props with ListState
   selectedKeyword: string | null;
   onKeywordSelect: (keyword: string | null) => void;
-  loading: boolean;
 }
 
 export function KeywordSelector({
-  keywords,
+  keywordsState, // Use keywordsState instead of separate props
   selectedKeyword,
   onKeywordSelect,
-  loading,
 }: KeywordSelectorProps) {
   const [open, setOpen] = React.useState(false)
+  const { data: keywords, loading, error } = keywordsState; // Add error to destructuring
+
+  // If there's an error, show it in a disabled button
+  if (error) {
+    return (
+      <Button
+        variant="outline"
+        className={cn(
+          "w-full sm:w-[300px] justify-between",
+          "h-9",
+          "bg-gray-700 border-gray-600 text-gray-100",
+          "text-sm",
+          "z-10"
+        )}
+        disabled
+      >
+        <span className="truncate text-red-400">Error: {error}</span>
+      </Button>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

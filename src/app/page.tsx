@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import SentimentTimeSeriesChart from "@/components/SentimentTimeSeriesChart";
 import { KeywordSelector } from "@/components/KeywordSelector";
-import { Loader2 } from "lucide-react";
 import SentimentDistributionChart from "@/components/SentimentDistributionChart";
 import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
@@ -73,19 +72,10 @@ export default function Home() {
       {/* Controls Section: Keyword Selector and Date Range */}
       <div className="w-full max-w-full md:max-w-screen-lg flex flex-col md:flex-row justify-center items-center gap-4 flex-wrap">
         <KeywordSelector
-          keywords={keywordsList.data}
+          keywordsState={keywordsList}
           selectedKeyword={selectedKeyword}
           onKeywordSelect={setSelectedKeyword}
-          loading={keywordsList.loading}
         />
-        {/* Display errors from keyword loading */}
-        {keywordsList.error && (
-          <p className="text-center text-red-500 py-2">
-            Error loading keywords: {keywordsList.error}
-          </p>
-        )}
-
-        {/* Date Range Picker & Presets Container */}
         <DateRangeControls
           startDate={startDate}
           endDate={endDate}
@@ -100,92 +90,25 @@ export default function Home() {
       {/* Charts Section - Grid Layout */}
       <div className="w-full max-w-full md:max-w-screen-lg flex flex-col gap-4 lg:grid lg:grid-cols-3 h-auto">
         {/* Line Chart Container */}
-        <div className="lg:col-span-2 bg-gray-800 rounded-xl mb-2 lg:mb-0">
-          {/* Line Chart display logic (using chartLoading, chartError, chartData) */}
-          {chartState.loading && (
-            <div className="flex items-center justify-center min-h-[180px]">
-              <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
-            </div>
-          )}
-          {chartState.error && !chartState.loading && (
-            <div className="flex items-center justify-center text-center text-red-500">
-              Error loading chart: {chartState.error}
-            </div>
-          )}
-          {!chartState.loading &&
-            !chartState.error &&
-            selectedKeyword &&
-            startDate &&
-            endDate &&
-            chartState.data.length > 0 && (
-              <SentimentTimeSeriesChart
-                data={chartState.data}
-                keyword={selectedKeyword}
-                drilldownSentiment={drilldownSentiment}
-              />
-            )}
-          {(!selectedKeyword ||
-            !startDate ||
-            !endDate ||
-            (!chartState.loading &&
-              !chartState.error &&
-              chartState.data.length === 0)) &&
-            !chartState.loading && (
-              <div className="text-center text-gray-500 flex items-center justify-center min-h-[120px]">
-                {
-                  !selectedKeyword || !startDate || !endDate
-                    ? "Select a keyword and a date range to view sentiment trend."
-                    : `No timeseries data found for "${
-                        selectedKeyword || ""
-                      }" in the selected date range.`
-                }
-              </div>
-            )}
+        <div className="lg:col-span-2 bg-gray-800 rounded-xl mb-2 lg:mb-0 h-full">
+          <SentimentTimeSeriesChart
+            chartState={chartState}
+            keyword={selectedKeyword || ''}
+            drilldownSentiment={drilldownSentiment}
+            chartHeight={280}
+          />
         </div>
 
         {/* Distribution Chart Container */}
-        <div className="lg:col-span-1 bg-gray-800 rounded-xl">
-          {/* Distribution Chart display logic (using distributionLoading, distributionError, distributionData) */}
-          {distributionState.loading && (
-            <div className="h-full flex items-center justify-center">
-              <Loader2 className="h-10 w-10 text-blue-400 animate-spin" />
-            </div>
-          )}
-          {distributionState.error && !distributionState.loading && (
-            <div className="flex items-center justify-center text-center text-red-500">
-              Error loading distribution: {distributionState.error}
-            </div>
-          )}
-          {!distributionState.loading &&
-            !distributionState.error &&
-            selectedKeyword &&
-            startDate &&
-            endDate &&
-            distributionState.data.length > 0 &&
-            periodAveragesState.data.length > 0 && (
-              <SentimentDistributionChart
-                data={distributionState.data}
-                keyword={selectedKeyword}
-                periodAverages={periodAveragesState.data[0]}
-                // Pass state and setter for drilldown
-                selectedSentiment={drilldownSentiment}
-                onSentimentSelect={setDrilldownSentiment}
-              />
-            )}
-          {/* Placeholder/Message when no distribution data to show */}
-          {(!selectedKeyword ||
-            !startDate ||
-            !endDate ||
-            (!distributionState.loading &&
-              !distributionState.error &&
-              distributionState.data.length === 0)) &&
-            !distributionState.loading && (
-              <div className="text-center text-gray-500 h-full flex items-center justify-center">
-                {!selectedKeyword || !startDate || !endDate
-                  ? "Select keyword/dates."
-                  : `No distribution data found.`}
-              </div>
-            )}
+        <div className="lg:col-span-1 bg-gray-800 rounded-xl h-full">
+          <SentimentDistributionChart
+            distributionState={distributionState}
+            keyword={selectedKeyword || ''}
+            periodAverages={periodAveragesState.data?.[0] || null}
+            selectedSentiment={drilldownSentiment}
+            onSentimentSelect={setDrilldownSentiment}
+            chartHeight={280}
+          />
         </div>
       </div>
 
@@ -226,50 +149,46 @@ export default function Home() {
             preventMovementUntilSwipeScrollTolerance={true}
             swipeScrollTolerance={50}
           >
-            <div className="h-[360px] w-full">
+            <div>
               <SentimentList
                 title={getListTitle(
                   "Top 20 Controversies",
                   startDate,
                   endDate
                 )}
-                data={controversialListState.data}
-                loading={controversialListState.loading}
-                error={controversialListState.error}
+                listState={controversialListState}
                 metric="volatility"
-                // oil-slick gradient color
                 colorClass="bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent"
                 onKeywordClick={setSelectedKeyword}
+                listHeight={360}
               />
             </div>
-            <div className="h-[360px] w-full">
+            <div>
               <SentimentList
                 title={getListTitle(
                   "Top 20 Most Positive Games",
                   startDate,
                   endDate
                 )}
-                data={positiveListState.data}
-                loading={positiveListState.loading}
-                error={positiveListState.error}
+                listState={positiveListState}
                 metric="avg_pos"
                 colorClass="text-green-400"
                 onKeywordClick={setSelectedKeyword}
+                listHeight={360}
               />
             </div>
-            <div className="h-[360px] w-full">
+            <div>
               <SentimentList
                 title={getListTitle(
                   "Top 20 Most Negative Games",
                   startDate,
                   endDate
                 )}
-                data={negativeListState.data}
-                loading={negativeListState.loading}
-                error={negativeListState.error}
+                listState={negativeListState}
                 metric="avg_neg"
                 colorClass="text-red-400"
                 onKeywordClick={setSelectedKeyword}
+                listHeight={360}
               />
             </div>
           </Carousel>
