@@ -7,13 +7,13 @@ import { Loader2 } from "lucide-react";
 import SentimentDistributionChart from "@/components/SentimentDistributionChart";
 import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
-import { useSentimentList } from "@/lib/hooks/useSentimentLists";
-import { useKeywords } from "@/lib/hooks/useKeywords";
+import { useSentimentScoreData } from "@/lib/hooks/useSentimentScoreData";
+import { useKeywordData } from "@/lib/hooks/useKeywordData";
 import { useChartData } from "@/lib/hooks/useChartData";
 import { handleDatePreset, getListTitle } from "@/lib/utils";
 import { Carousel } from "react-responsive-carousel";
 import "react-responsive-carousel/lib/styles/carousel.min.css";
-import { useSentimentDeltaList } from "@/lib/hooks/useSentimentDeltaList";
+import { useSentimentControversyData } from "@/lib/hooks/useSentimentControversyData";
 
 export default function Home() {
   // State for keywords
@@ -37,11 +37,11 @@ export default function Home() {
   const [activeList, setActiveList] = useState<
     "positive" | "negative" | "controversial"
   >("controversial");
-  const positiveListState = useSentimentList("positive", startDate, endDate);
-  const negativeListState = useSentimentList("negative", startDate, endDate);
-  const controversialListState = useSentimentDeltaList(startDate, endDate);
+  const positiveListState = useSentimentScoreData("positive", startDate, endDate);
+  const negativeListState = useSentimentScoreData("negative", startDate, endDate);
+  const controversialListState = useSentimentControversyData(startDate, endDate);
 
-  const { keywordsList } = useKeywords();
+  const { keywordsList } = useKeywordData();
   const { chartState, distributionState, periodAveragesState } = useChartData(
     selectedKeyword,
     startDate,

@@ -14,7 +14,7 @@ import {
 } from '@/lib/config';
 import { athenaClient, delay } from '@/lib/awsClients';
 import { SentimentSummary, SentimentSummarySchema } from '@/lib/types/sentiment';
-import { jsonResponse } from '../response';
+import { jsonResponse } from '../../response';
 
 // Helper function to parse Athena results using SDK types
 const parseAthenaResults = (results: GetQueryResultsCommandOutput): SentimentSummary[] => {

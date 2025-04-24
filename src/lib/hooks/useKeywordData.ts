@@ -2,7 +2,7 @@ import { useReducer, useEffect, useCallback } from "react";
 import { listReducer } from "../reducers/listReducer";
 import { ApiResponse } from "@/app/api/response";
 
-export function useKeywords() {
+export function useKeywordData() {
   const [keywordsList, dispatchKeywordsList] = useReducer(
     listReducer<string>,
     { data: [], loading: true, error: null }

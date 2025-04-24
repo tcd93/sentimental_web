@@ -3,7 +3,7 @@ import { listReducer } from "../reducers/listReducer";
 import { SentimentControversy } from "../types/sentiment";
 import { ApiResponse } from "@/app/api/response";
 
-export function useSentimentDeltaList(
+export function useSentimentControversyData(
   startDate: string,
   endDate: string
 ) {

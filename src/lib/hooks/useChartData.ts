@@ -25,7 +25,7 @@ export function useChartData(selectedKeyword: string | null, startDate: string, 
       const baseParams = `keyword=${encodeURIComponent(selectedKeyword)}&startDate=${startDate}&endDate=${endDate}`;
       const timeseriesUrl = `/api/sentiment/timeseries?${baseParams}`;
       const distributionUrl = `/api/sentiment/distribution?${baseParams}`;
-      const periodAveragesUrl = `/api/sentiment?${baseParams}&limit=1`;
+      const periodAveragesUrl = `/api/sentiment/score?${baseParams}&limit=1`;
       // Timeseries
       (async () => {
         dispatchChartState({ type: "loading" });
