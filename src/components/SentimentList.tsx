@@ -47,9 +47,9 @@ const SentimentList: React.FC<SentimentListProps> = ({
     );
 
   return (
-    <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-full flex flex-col">
-      <h2 className={`text-2xl font-semibold mb-4 ${colorClass}`}>{title}</h2>
-      <ul className="space-y-3 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 scrollbar-thumb-rounded-full scrollbar-track-rounded-full">
+    <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-full flex flex-col overflow-y-auto scrollbar scrollbar-track-transparent scrollbar-thumb-gray-600">
+      <h2 className={`text-xl font-semibold mb-4 ${colorClass}`}>{title}</h2>
+      <ul className="space-y-3 flex-1">
         {data.map((item, index) => {
           let value: number | null = null;
           let arrow: React.ReactNode = null;
@@ -61,13 +61,17 @@ const SentimentList: React.FC<SentimentListProps> = ({
           ) {
             value = item[metric as "avg_pos" | "avg_neg"];
           } else if (metric === "volatility" && "score" in item) {
-            value = typeof item.score === 'number' ? item.score : null;
+            value = typeof item.score === "number" ? item.score : null;
             if (typeof value === "number") {
               if (item.type === "POSITIVE") {
-                arrow = <span className="inline-block ml-1 align-middle">▲</span>;
+                arrow = (
+                  <span className="inline-block ml-1 align-middle">▲</span>
+                );
                 arrowColor = "text-green-400";
               } else if (item.type === "NEGATIVE") {
-                arrow = <span className="inline-block ml-1 align-middle">▼</span>;
+                arrow = (
+                  <span className="inline-block ml-1 align-middle">▼</span>
+                );
                 arrowColor = "text-red-400";
               }
             }
@@ -85,14 +89,20 @@ const SentimentList: React.FC<SentimentListProps> = ({
                 <span className={`${colorClass} block`}>
                   {metric === "volatility" ? (
                     <>
-                      {value !== null && value !== undefined ? Math.abs(value).toFixed(2) : "N/A"}
+                      {value !== null && value !== undefined
+                        ? Math.abs(value).toFixed(2)
+                        : "N/A"}
                       {arrow && <span className={arrowColor}>{arrow}</span>}
                     </>
+                  ) : value !== null && value !== undefined ? (
+                    value.toFixed(2)
                   ) : (
-                    value !== null && value !== undefined ? value.toFixed(2) : "N/A"
+                    "N/A"
                   )}
                 </span>
-                {"count" in item && item.count !== undefined && item.count !== null ? (
+                {"count" in item &&
+                item.count !== undefined &&
+                item.count !== null ? (
                   <span className="text-gray-400 block">
                     Count: {item.count}
                   </span>

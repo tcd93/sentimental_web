@@ -66,12 +66,12 @@ export default function Home() {
   }, [activeList, controversialListState, selectedKeyword, keywordsList]);
 
   return (
-    <main className="w-full min-h-screen flex flex-col items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white overflow-x-hidden">
-      <h1 className="text-3xl md:text-4xl font-bold mb-8">
+    <main className="w-full min-h-screen flex flex-col gap-y-4 items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white overflow-x-hidden">
+      <h1 className="text-3xl md:text-4xl font-bold">
         Game Sentiment Dashboard
       </h1>
       {/* Controls Section: Keyword Selector and Date Range */}
-      <div className="w-full max-w-full md:max-w-screen-lg mb-6 flex flex-col md:flex-row justify-center items-center gap-4 md:gap-6 flex-wrap">
+      <div className="w-full max-w-full md:max-w-screen-lg flex flex-col md:flex-row justify-center items-center gap-4 flex-wrap">
         <KeywordSelector
           keywords={keywordsList.data}
           selectedKeyword={selectedKeyword}
@@ -98,17 +98,17 @@ export default function Home() {
       </div>
 
       {/* Charts Section - Grid Layout */}
-      <div className="w-full max-w-full md:max-w-screen-lg mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="w-full max-w-full md:max-w-screen-lg grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Line Chart Container - Add fixed height */}
-        <div className="lg:col-span-2 h-[374px]">
+        <div className="lg:col-span-2 h-[360px]">
           {/* Line Chart display logic (using chartLoading, chartError, chartData) */}
           {chartState.loading && (
-            <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-[374px] w-full flex items-center justify-center">
+            <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center">
               <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
             </div>
           )}
           {chartState.error && !chartState.loading && (
-            <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-[374px] w-full flex items-center justify-center text-center text-red-500">
+            <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center text-center text-red-500">
               Error loading chart: {chartState.error}
             </div>
           )}
@@ -146,15 +146,15 @@ export default function Home() {
         </div>
 
         {/* Distribution Chart Container - Add fixed height */}
-        <div className="lg:col-span-1 h-[374px]">
+        <div className="lg:col-span-1 h-[360px]">
           {/* Distribution Chart display logic (using distributionLoading, distributionError, distributionData) */}
           {distributionState.loading && (
-            <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-[374px] w-full flex items-center justify-center">
+            <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center">
               <Loader2 className="h-10 w-10 text-blue-400 animate-spin" />
             </div>
           )}
           {distributionState.error && !distributionState.loading && (
-            <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-[374px] w-full flex items-center justify-center text-center text-red-500">
+            <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center text-center text-red-500">
               Error loading distribution: {distributionState.error}
             </div>
           )}
@@ -191,9 +191,9 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Grid layout for the lists */}
+      {/* Lists Section */}
       <div className="w-full max-w-full md:max-w-screen-lg flex flex-col items-center gap-4">
-        <div className="w-full h-[420px]">
+        <div className="w-full">
           <Carousel
             selectedItem={
               activeList === "controversial"
