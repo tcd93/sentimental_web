@@ -1,13 +1,13 @@
 import React from "react";
-import { SentimentDelta, SentimentSummary } from "@/lib/types/sentiment"; // Adjust the import path as necessary
+import { SentimentControversy, SentimentSummary } from "@/lib/types/sentiment"; // Adjust the import path as necessary
 
 // Define the interface for props including the click handler
 interface SentimentListProps {
   title: string;
-  data: SentimentSummary[] | SentimentDelta[];
+  data: SentimentSummary[] | SentimentControversy[];
   loading: boolean;
   error: string | null;
-  metric: "avg_pos" | "avg_neg" | "delta";
+  metric: "avg_pos" | "avg_neg" | "volatility";
   colorClass: string;
   onKeywordClick: (keyword: string) => void;
 }
@@ -60,13 +60,13 @@ const SentimentList: React.FC<SentimentListProps> = ({
             "avg_neg" in item
           ) {
             value = item[metric as "avg_pos" | "avg_neg"];
-          } else if (metric === "delta" && "delta" in item) {
-            value = typeof item.delta === 'number' ? item.delta : null;
+          } else if (metric === "volatility" && "score" in item) {
+            value = typeof item.score === 'number' ? item.score : null;
             if (typeof value === "number") {
-              if (item.delta_type === "POSITIVE") {
+              if (item.type === "POSITIVE") {
                 arrow = <span className="inline-block ml-1 align-middle">▲</span>;
                 arrowColor = "text-green-400";
-              } else if (item.delta_type === "NEGATIVE") {
+              } else if (item.type === "NEGATIVE") {
                 arrow = <span className="inline-block ml-1 align-middle">▼</span>;
                 arrowColor = "text-red-400";
               }
@@ -83,7 +83,7 @@ const SentimentList: React.FC<SentimentListProps> = ({
               </span>
               <div className="text-right text-sm">
                 <span className={`${colorClass} block`}>
-                  {metric === "delta" ? (
+                  {metric === "volatility" ? (
                     <>
                       {value !== null && value !== undefined ? Math.abs(value).toFixed(2) : "N/A"}
                       {arrow && <span className={arrowColor}>{arrow}</span>}

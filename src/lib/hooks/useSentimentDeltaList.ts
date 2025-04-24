@@ -1,13 +1,13 @@
 import { useReducer, useEffect, useCallback } from "react";
 import { listReducer } from "../reducers/listReducer";
-import { SentimentDelta } from "../types/sentiment";
+import { SentimentControversy } from "../types/sentiment";
 import { ApiResponse } from "@/app/api/response";
 
 export function useSentimentDeltaList(
   startDate: string,
   endDate: string
 ) {
-  const [list, dispatchList] = useReducer(listReducer<SentimentDelta>, {
+  const [list, dispatchList] = useReducer(listReducer<SentimentControversy>, {
     data: [],
     loading: true,
     error: null,
@@ -16,9 +16,9 @@ export function useSentimentDeltaList(
   const fetchData = useCallback(async () => {
     dispatchList({ type: "loading" });
     try {
-      const url = `/api/sentiment/delta?startDate=${startDate}&endDate=${endDate}`;
+      const url = `/api/sentiment/controversy?startDate=${startDate}&endDate=${endDate}`;
       const response = await fetch(url);
-      const result = (await response.json()) as ApiResponse<SentimentDelta>;
+      const result = (await response.json()) as ApiResponse<SentimentControversy>;
       if (result.error) throw new Error(result.details || result.error);
       dispatchList({ type: "success", data: result.data! });
     } catch (e) {

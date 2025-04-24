@@ -17,36 +17,36 @@ import {
 } from "@/lib/config";
 import { athenaClient, delay } from "@/lib/awsClients";
 import { jsonResponse } from "../../response";
-import { SentimentDelta, SentimentDeltaSchema } from "@/lib/types/sentiment";
+import { SentimentControversy, SentimentControversySchema } from "@/lib/types/sentiment";
 
 // Helper to parse Athena results for delta leaderboard
 const parseAthenaResults = (
   results: GetQueryResultsCommandOutput
-): SentimentDelta[] => {
+): SentimentControversy[] => {
   const rows = results.ResultSet?.Rows ?? [];
   if (rows.length < 2) return [];
   const columns = rows[0].Data?.map((datum) => datum.VarCharValue) ?? [];
 
   const data = rows.slice(1).map((row) => {
     const parsed_row = row.Data?.reduce((obj, field, i) => {
-      const key = columns[i] as keyof SentimentDelta;
+      const key = columns[i] as keyof SentimentControversy;
       const value = field.VarCharValue;
 
       switch (key) {
         case "keyword":
           obj[key] = value;
           break;
-        case "delta":
+        case "score":
           obj[key] = value !== undefined ? Number(value) : null;
           break;
-        case "delta_type":
+        case "type":
           obj[key] = value as "POSITIVE" | "NEGATIVE";
           break;
       }
       return obj;
-    }, {} as Partial<SentimentDelta>);
+    }, {} as Partial<SentimentControversy>);
 
-    return SentimentDeltaSchema.parse(parsed_row);
+    return SentimentControversySchema.parse(parsed_row);
   });
 
   return data;
@@ -81,53 +81,52 @@ export async function GET(request: Request) {
     );
   }
 
-  const deltaCacheKey = `sentiment-delta-v2:l${limit}-from${startDate}-to${endDate}`;
-  const cachedDelta = await kv.get<SentimentDelta[]>(deltaCacheKey);
-  if (cachedDelta) {
-    return jsonResponse({ data: cachedDelta });
+  const cacheKey = `sentiment-contro-v2:l${limit}-from${startDate}-to${endDate}`;
+  const cachedList = await kv.get<SentimentControversy[]>(cacheKey);
+  if (cachedList) {
+    return jsonResponse({ data: cachedList });
   }
 
-  // Athena SQL for delta calculation
-  const deltaQuery = `
-      WITH min_max AS (
-          SELECT
-              keyword,
-              min(cast(created_at AS date)) AS min_date,
-              max(cast(created_at AS date)) AS max_date
-          FROM "${ATHENA_DB}"."${ATHENA_TABLE}"
-          WHERE cast(created_at as date) between date '${startDate}' and date '${endDate}'
-          GROUP BY keyword
-          HAVING count(1) > 20
-      ), first_last AS (
-          SELECT
-              s.keyword,
-              avg(CASE WHEN cast(s.created_at as date) = m.min_date THEN sentiment_score_positive END) AS start_avg_pos,
-              avg(CASE WHEN cast(s.created_at as date) = m.max_date THEN sentiment_score_positive END) AS end_avg_pos,
-              avg(CASE WHEN cast(s.created_at as date) = m.min_date THEN sentiment_score_negative END) AS start_avg_neg,
-              avg(CASE WHEN cast(s.created_at as date) = m.max_date THEN sentiment_score_negative END) AS end_avg_neg
-          FROM "${ATHENA_DB}"."${ATHENA_TABLE}" s
-          INNER JOIN min_max m 
-          ON s.keyword = m.keyword 
-              AND (cast(s.created_at as date) = m.min_date OR cast(s.created_at as date) = m.max_date)
-          GROUP BY s.keyword
-      )
-      SELECT  
-          keyword,
-          CASE
-            WHEN abs(end_avg_pos - start_avg_pos) >= abs(end_avg_neg - start_avg_neg) THEN (end_avg_pos - start_avg_pos)
-            ELSE (end_avg_neg - start_avg_neg)
-          END AS delta,
-          CASE
-            WHEN abs(end_avg_pos - start_avg_pos) >= abs(end_avg_neg - start_avg_neg) THEN 'POSITIVE'
-            ELSE 'NEGATIVE'
-          END AS delta_type
-      FROM first_last
-      ORDER BY abs(delta) DESC
-      LIMIT ${limit}
+  // Athena SQL for controversy calculation
+  const query = `
+      WITH daily_avg AS (
+        SELECT
+            keyword,
+            cast(created_at AS date) AS sentiment_date,
+            avg(sentiment_score_positive) AS avg_pos,
+            avg(sentiment_score_negative) AS avg_neg
+        FROM "${ATHENA_DB}"."${ATHENA_TABLE}"
+        WHERE cast(created_at AS date) BETWEEN date('${startDate}') AND date('${endDate}')
+        GROUP BY keyword, cast(created_at AS date)
+        HAVING COUNT(1) > 20
+    ), volatility AS (
+        SELECT
+            keyword,
+            stddev_samp(avg_pos) AS pos_volatility,
+            stddev_samp(avg_neg) AS neg_volatility
+        FROM daily_avg
+        GROUP BY keyword
+    ), ranked AS (
+        SELECT
+            keyword,
+            CASE
+                WHEN pos_volatility >= neg_volatility THEN pos_volatility
+                ELSE neg_volatility
+            END AS score,
+            CASE
+                WHEN pos_volatility >= neg_volatility THEN 'POSITIVE'
+                ELSE 'NEGATIVE'
+            END AS type
+        FROM volatility
+    )
+    SELECT *
+    FROM ranked
+    ORDER BY score DESC
+    LIMIT ${limit};
     `;
 
   const startQueryCmd = new StartQueryExecutionCommand({
-    QueryString: deltaQuery,
+    QueryString: query,
     QueryExecutionContext: { Database: ATHENA_DB },
     ResultConfiguration: { OutputLocation: ATHENA_OUTPUT_LOCATION },
   });
@@ -160,11 +159,11 @@ export async function GET(request: Request) {
   const results = await athenaClient.send(
     new GetQueryResultsCommand({ QueryExecutionId })
   );
-  // Parse Athena results for delta
+  // Parse Athena results
   const parsedData = parseAthenaResults(results);
   // Cache result
   const ttl =
     parsedData.length > 0 ? CACHE_TTL_SECONDS : CACHE_TTL_EMPTY_SECONDS;
-  await kv.set(deltaCacheKey, parsedData, { ex: ttl });
+  await kv.set(cacheKey, parsedData, { ex: ttl });
   return jsonResponse({ data: parsedData });
 }

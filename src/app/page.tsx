@@ -39,7 +39,7 @@ export default function Home() {
   >("positive");
   const postiveListState = useSentimentList("positive", startDate, endDate);
   const negativeListState = useSentimentList("negative", startDate, endDate);
-  const deltaListState = useSentimentDeltaList(startDate, endDate);
+  const controversyListState = useSentimentDeltaList(startDate, endDate);
 
   const { keywordsList } = useKeywords();
   const { chartState, distributionState, periodAveragesState } = useChartData(
@@ -263,15 +263,15 @@ export default function Home() {
             <div className="h-[420px]">
               <SentimentList
                 title={getListTitle(
-                  "Top 20 Sentiment Gainers/Losers",
+                  "Top 20 Controversies",
                   startDate,
                   endDate
                 )}
-                data={deltaListState.data}
-                loading={deltaListState.loading}
-                error={deltaListState.error}
-                metric="delta"
-                colorClass="text-blue-400"
+                data={controversyListState.data}
+                loading={controversyListState.loading}
+                error={controversyListState.error}
+                metric="volatility"
+                colorClass="text-yellow-400"
                 onKeywordClick={setSelectedKeyword}
               />
             </div>
