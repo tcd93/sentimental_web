@@ -3,9 +3,9 @@ import { listReducer, ListAction } from "../reducers/listReducer";
 import { SentimentSummary } from "../types/sentiment";
 import { ApiResponse } from "@/app/api/response";
 
-// Add type: "positive" | "negative" to only fetch one list at a time
+// type: "positive" | "negative" | "gainers" | "losers"
 export function useSentimentList(
-  type: "positive" | "negative",
+  type: "positive" | "negative" | "gainers" | "losers",
   startDate: string,
   endDate: string
 ) {
@@ -45,11 +45,13 @@ export function useSentimentList(
 
   useEffect(() => {
     const cacheKey = `${type}_${startDate}_${endDate}`;
-    const listParams = `?limit=20&startDate=${startDate}&endDate=${endDate}`;
-    const url =
-      type === "negative"
-        ? `/api/sentiment${listParams}&metric=avg_neg&order=desc`
-        : `/api/sentiment${listParams}&metric=avg_pos&order=desc`;
+    let url = "";
+    if (type === "positive" || type === "negative") {
+      const metric = type === "positive" ? "avg_pos" : "avg_neg";
+      url = `/api/sentiment?limit=20&startDate=${startDate}&endDate=${endDate}&metric=${metric}&order=desc`;
+    } else if (type === "gainers" || type === "losers") {
+      url = `/api/sentiment/delta?limit=20&startDate=${startDate}&endDate=${endDate}&deltaType=${type}`;
+    }
     // Check cache first
     const cached = cacheRef.current[cacheKey];
     if (cached) {

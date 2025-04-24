@@ -1,10 +1,10 @@
 "use client"; // Add this directive for client-side fetching and state
 
 import { useState, useEffect } from "react";
-import SentimentTimeSeriesChart from "@/components/SentimentChart"; // Import the new chart component
-import { KeywordSelector } from "@/components/KeywordSelector"; // Import the keyword selector
-import { Loader2, ChevronLeft, ChevronRight } from "lucide-react"; // <-- Import Loader2 and Chevron icons
-import SentimentDistributionChart from "@/components/SentimentDistributionChart"; // <-- Import the new chart
+import SentimentTimeSeriesChart from "@/components/SentimentChart";
+import { KeywordSelector } from "@/components/KeywordSelector";
+import { Loader2 } from "lucide-react";
+import SentimentDistributionChart from "@/components/SentimentDistributionChart";
 import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
 import { useSentimentList } from "@/lib/hooks/useSentimentLists";
@@ -13,6 +13,7 @@ import { useChartData } from "@/lib/hooks/useChartData";
 import { handleDatePreset, getListTitle } from "@/lib/utils";
 import { Carousel } from "react-responsive-carousel";
 import "react-responsive-carousel/lib/styles/carousel.min.css";
+import { useSentimentDeltaList } from "@/lib/hooks/useSentimentDeltaList";
 
 export default function Home() {
   // State for keywords
@@ -33,11 +34,13 @@ export default function Home() {
   });
 
   // Use custom hooks for data fetching and state
-  const [activeList, setActiveList] = useState<"positive" | "negative">(
-    "positive"
-  );
+  const [activeList, setActiveList] = useState<
+    "positive" | "negative" | "gainers" | "losers"
+  >("positive");
   const postiveListState = useSentimentList("positive", startDate, endDate);
   const negativeListState = useSentimentList("negative", startDate, endDate);
+  const deltaListState = useSentimentDeltaList(startDate, endDate);
+
   const { keywordsList } = useKeywords();
   const { chartState, distributionState, periodAveragesState } = useChartData(
     selectedKeyword,
@@ -193,34 +196,29 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Grid layout for the two lists (Now Below Chart) */}
+      {/* Grid layout for the lists */}
       <div className="w-full max-w-full md:max-w-screen-lg flex flex-col items-center gap-4">
-        <div className="flex items-center gap-2 mb-2 select-none">
-          <button
-            aria-label="Show Positive List"
-            className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50"
-            onClick={() => setActiveList("positive")}
-            disabled={activeList === "positive"}
-          >
-            <ChevronLeft className="w-6 h-6 text-red-400" />
-          </button>
-          <span className="text-lg font-semibold min-w-[120px] text-center">
-            {activeList === "positive" ? "Most Positive" : "Most Negative"}
-          </span>
-          <button
-            aria-label="Show Negative List"
-            className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors disabled:opacity-50"
-            onClick={() => setActiveList("negative")}
-            disabled={activeList === "negative"}
-          >
-            <ChevronRight className="w-6 h-6 text-green-400" />
-          </button>
-        </div>
         <div className="w-full h-[420px]">
           <Carousel
-            selectedItem={activeList === "positive" ? 0 : 1}
+            selectedItem={
+              activeList === "positive"
+                ? 0
+                : activeList === "negative"
+                ? 1
+                : activeList === "gainers"
+                ? 2
+                : 3
+            }
             onChange={(idx) =>
-              setActiveList(idx === 0 ? "positive" : "negative")
+              setActiveList(
+                idx === 0
+                  ? "positive"
+                  : idx === 1
+                  ? "negative"
+                  : idx === 2
+                  ? "gainers"
+                  : "losers"
+              )
             }
             showThumbs={false}
             showStatus={false}
@@ -230,9 +228,6 @@ export default function Home() {
             emulateTouch={true}
             infiniteLoop={false}
             transitionTime={400}
-            // enable mobile swipe
-            preventMovementUntilSwipeScrollTolerance={true}
-            swipeScrollTolerance={50}
             className="h-full"
           >
             <div className="h-[420px]">
@@ -262,6 +257,21 @@ export default function Home() {
                 error={negativeListState.error}
                 metric="avg_neg"
                 colorClass="text-red-400"
+                onKeywordClick={setSelectedKeyword}
+              />
+            </div>
+            <div className="h-[420px]">
+              <SentimentList
+                title={getListTitle(
+                  "Top 20 Sentiment Gainers/Losers",
+                  startDate,
+                  endDate
+                )}
+                data={deltaListState.data}
+                loading={deltaListState.loading}
+                error={deltaListState.error}
+                metric="delta"
+                colorClass="text-blue-400"
                 onKeywordClick={setSelectedKeyword}
               />
             </div>

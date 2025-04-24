@@ -22,6 +22,14 @@ export const SentimentSummarySchema = z.object({
 });
 export type SentimentSummary = z.infer<typeof SentimentSummarySchema>;
 
+// Sentiment Delta (used for Gainers and Losers)
+export const SentimentDeltaSchema = z.object({
+  keyword: z.string(),
+  delta: z.number().nullable(),
+  delta_type: z.enum(["POSITIVE", "NEGATIVE"]).nullable(),
+});
+export type SentimentDelta = z.infer<typeof SentimentDeltaSchema>;
+
 // Distribution Data Point
 export const DistributionDataPointSchema = z.object({
   sentiment: z.string(),
