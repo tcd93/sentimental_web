@@ -95,7 +95,7 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
   };
 
   return (
-    <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-full flex flex-col">
+    <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col">
       <h3 className="text-xl font-semibold mb-4 text-blue-300 shrink-0 text-center">
         {/**Camel Case */}
         {keyword
@@ -111,7 +111,7 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
         )}
       </h3>
       <div className="flex-grow min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={280}>
           <LineChart
             data={data}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}

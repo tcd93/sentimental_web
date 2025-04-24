@@ -114,10 +114,10 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   };
 
   return (
-    <div className="bg-gray-800 shadow-lg rounded-lg p-6 h-full flex flex-col">
+    <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col">
       <h3 className="text-xl font-semibold mb-4 text-blue-300 text-center">Distribution</h3>
       <div className="flex-grow min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
                 data={sortedData}

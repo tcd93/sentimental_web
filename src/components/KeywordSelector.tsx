@@ -42,7 +42,7 @@ export function KeywordSelector({
           role="combobox"
           aria-expanded={open}
           className={cn(
-              "w-[300px] justify-between",
+              "w-full sm:w-[300px] justify-between",
               "h-9",
               "bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-100",
               "focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900",
@@ -64,7 +64,7 @@ export function KeywordSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[300px] p-0 bg-gray-800 border border-gray-700 text-gray-200 shadow-xl" 
+        className="w-full sm:w-[300px] p-0 bg-gray-800 border border-gray-700 text-gray-200 shadow-xl" 
         sideOffset={4}
       >
         <Command className="bg-gray-800">
@@ -100,4 +100,4 @@ export function KeywordSelector({
       </PopoverContent>
     </Popover>
   )
-} 
+}

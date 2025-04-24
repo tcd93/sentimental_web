@@ -66,8 +66,8 @@ export default function Home() {
   }, [activeList, controversialListState, selectedKeyword, keywordsList]);
 
   return (
-    <main className="w-full min-h-screen flex flex-col gap-y-4 items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white">
-      <h1 className="text-3xl md:text-4xl font-bold">
+    <main className="w-full min-h-screen flex flex-col gap-y-6 items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white">
+      <h1 className="text-3xl md:text-4xl font-bold mt-4 mb-2">
         Game Sentiment Dashboard
       </h1>
       {/* Controls Section: Keyword Selector and Date Range */}
@@ -98,17 +98,17 @@ export default function Home() {
       </div>
 
       {/* Charts Section - Grid Layout */}
-      <div className="w-full max-w-full md:max-w-screen-lg grid grid-cols-1 lg:grid-cols-3 gap-4 h-[360px]">
+      <div className="w-full max-w-full md:max-w-screen-lg flex flex-col gap-4 lg:grid lg:grid-cols-3 h-auto">
         {/* Line Chart Container */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 bg-gray-800 rounded-xl mb-2 lg:mb-0">
           {/* Line Chart display logic (using chartLoading, chartError, chartData) */}
           {chartState.loading && (
-            <div className="h-full bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center">
+            <div className="flex items-center justify-center min-h-[180px]">
               <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
             </div>
           )}
           {chartState.error && !chartState.loading && (
-            <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center text-center text-red-500">
+            <div className="flex items-center justify-center text-center text-red-500">
               Error loading chart: {chartState.error}
             </div>
           )}
@@ -121,11 +121,9 @@ export default function Home() {
               <SentimentTimeSeriesChart
                 data={chartState.data}
                 keyword={selectedKeyword}
-                // Pass drilldown state
                 drilldownSentiment={drilldownSentiment}
               />
             )}
-          {/* Placeholder/Message when no chart data to show */}
           {(!selectedKeyword ||
             !startDate ||
             !endDate ||
@@ -133,28 +131,28 @@ export default function Home() {
               !chartState.error &&
               chartState.data.length === 0)) &&
             !chartState.loading && (
-              <div className="bg-gray-800 shadow-lg rounded-lg p-6 text-center text-gray-500 h-full flex items-center justify-center">
+              <div className="text-center text-gray-500 flex items-center justify-center min-h-[120px]">
                 {
                   !selectedKeyword || !startDate || !endDate
                     ? "Select a keyword and a date range to view sentiment trend."
                     : `No timeseries data found for "${
                         selectedKeyword || ""
-                      }" in the selected date range.` // Added null check for keyword
+                      }" in the selected date range.`
                 }
               </div>
             )}
         </div>
 
         {/* Distribution Chart Container */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 bg-gray-800 rounded-xl">
           {/* Distribution Chart display logic (using distributionLoading, distributionError, distributionData) */}
           {distributionState.loading && (
-            <div className="h-full bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center">
+            <div className="h-full flex items-center justify-center">
               <Loader2 className="h-10 w-10 text-blue-400 animate-spin" />
             </div>
           )}
           {distributionState.error && !distributionState.loading && (
-            <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center text-center text-red-500">
+            <div className="flex items-center justify-center text-center text-red-500">
               Error loading distribution: {distributionState.error}
             </div>
           )}
@@ -182,7 +180,7 @@ export default function Home() {
               !distributionState.error &&
               distributionState.data.length === 0)) &&
             !distributionState.loading && (
-              <div className="bg-gray-800 shadow-lg rounded-lg p-6 text-center text-gray-500 h-full flex items-center justify-center">
+              <div className="text-center text-gray-500 h-full flex items-center justify-center">
                 {!selectedKeyword || !startDate || !endDate
                   ? "Select keyword/dates."
                   : `No distribution data found.`}
@@ -193,7 +191,7 @@ export default function Home() {
 
       {/* Lists Section */}
       <div className="w-full max-w-full md:max-w-screen-lg flex flex-col items-center gap-4">
-        <div className="w-full">
+        <div className="w-full bg-gray-800 rounded-xl">
           <Carousel
             selectedItem={
               activeList === "controversial"
@@ -228,7 +226,7 @@ export default function Home() {
             preventMovementUntilSwipeScrollTolerance={true}
             swipeScrollTolerance={50}
           >
-            <div className="h-[420px] w-full">
+            <div className="h-[360px] w-full">
               <SentimentList
                 title={getListTitle(
                   "Top 20 Controversies",
@@ -244,7 +242,7 @@ export default function Home() {
                 onKeywordClick={setSelectedKeyword}
               />
             </div>
-            <div className="h-[420px] w-full">
+            <div className="h-[360px] w-full">
               <SentimentList
                 title={getListTitle(
                   "Top 20 Most Positive Games",
@@ -259,7 +257,7 @@ export default function Home() {
                 onKeywordClick={setSelectedKeyword}
               />
             </div>
-            <div className="h-[420px] w-full">
+            <div className="h-[360px] w-full">
               <SentimentList
                 title={getListTitle(
                   "Top 20 Most Negative Games",
