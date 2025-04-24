@@ -6,10 +6,8 @@ import {
   Pie,
   Cell,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   TooltipProps,
-  LegendType
 } from 'recharts';
 import { Loader2 } from 'lucide-react';
 import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
@@ -135,14 +133,6 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
     return null;
   };
 
-  // Prepare legend payload based on fixed order
-  const legendPayload = SENTIMENT_ORDER.map(sentiment => ({
-      value: sentiment.charAt(0).toUpperCase() + sentiment.slice(1).toLowerCase(),
-      type: 'circle' as LegendType,
-      id: sentiment,
-      color: SENTIMENT_COLORS[sentiment] || SENTIMENT_COLORS.UNKNOWN
-  }));
-
   // Handle clicks on Pie slices
   const handlePieClick = (data: DistributionDataPoint) => {
       const clickedSentiment = data?.sentiment?.toUpperCase();
@@ -167,13 +157,13 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                outerRadius={80}
                 innerRadius={40}
                 fill="#8884d8"
                 dataKey="count"
                 nameKey="sentiment"
                 onClick={handlePieClick}
                 className="cursor-pointer focus:outline-none focus:ring-0"
+                isAnimationActive={false}
               >
                 {sortedData.map((entry, index) => (
                   <Cell 
@@ -183,8 +173,12 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
                   />
                 ))}
               </Pie>
-              <Tooltip content={renderCustomTooltip} />
-              <Legend payload={legendPayload} wrapperStyle={{ paddingTop: '15px' }} align="center"/>
+              <Tooltip 
+                content={renderCustomTooltip}
+                allowEscapeViewBox={{ x: true, y: true }}
+                wrapperStyle={{ zIndex: 100 }}
+                isAnimationActive={false}
+              />
             </PieChart>
           </ResponsiveContainer>
        </div>

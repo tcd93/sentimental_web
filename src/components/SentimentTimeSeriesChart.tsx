@@ -8,9 +8,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
-  LegendType,
 } from "recharts";
 import { Loader2 } from 'lucide-react';
 import { TimeseriesDataPoint } from "@/lib/types/sentiment";
@@ -115,20 +113,6 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
     );
   }
 
-  // Prepare legend payload - only include active sentiment if drilled down
-  const legendPayload = (
-    !drilldownSentiment ? SENTIMENT_ORDER : [drilldownSentiment]
-  )
-    .filter((sentiment) => SENTIMENT_ORDER.includes(sentiment.toUpperCase())) // Ensure valid sentiments
-    .map((sentimentUpper) => ({
-      value:
-        sentimentUpper.charAt(0).toUpperCase() +
-        sentimentUpper.slice(1).toLowerCase(),
-      type: "line" as LegendType,
-      id: sentimentUpper,
-      color: SENTIMENT_COLORS[sentimentUpper] || SENTIMENT_COLORS.UNKNOWN,
-    }));
-
   // Determine which data keys to render based on drilldown
   const linesToRender = !drilldownSentiment
     ? SENTIMENT_ORDER
@@ -157,7 +141,7 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
         <ResponsiveContainer width="100%" height={chartHeight}>
           <LineChart
             data={data}
-            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#4B5563" />
             <XAxis
@@ -166,7 +150,13 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
               stroke="#9CA3AF"
               tick={{ fontSize: 12 }}
             />
-            <YAxis domain={[0, 1]} stroke="#9CA3AF" tick={{ fontSize: 12 }} />
+            <YAxis 
+              domain={[0, 1]} 
+              stroke="#9CA3AF" 
+              tick={{ fontSize: 12 }}
+              tickFormatter={(value) => value.toFixed(1)} // Format to 1 decimal place
+              width={25} // Reduce YAxis width
+            />
             <Tooltip
               contentStyle={{
                 backgroundColor: "#1F2937",
@@ -179,12 +169,6 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
                 name,
               ]}
             />
-            <Legend
-              payload={legendPayload}
-              wrapperStyle={{ paddingTop: "15px" }}
-              align="center"
-            />
-
             {linesToRender.map((sentiment) => {
               const dataKey = getDataKey(sentiment);
               if (!dataKey) return null;
