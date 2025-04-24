@@ -23,14 +23,13 @@ const SentimentList: React.FC<SentimentListProps> = ({
 }) => {
   if (loading)
     return (
-      <div className="bg-gray-800 shadow-lg rounded-2xl p-6 h-96 w-full">
-        <div className="h-6 bg-gray-700 rounded w-1/2 mb-6 animate-pulse"></div>
-        <div className="space-y-3">
-          <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-          <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-          <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-          <div className="h-12 bg-gray-700 rounded animate-pulse"></div>
-        </div>
+      <div className="bg-gray-800 shadow-lg rounded-2xl pl-6 pr-6 pt-6 h-full w-full flex flex-col">
+        <div className="h-12 bg-gray-700 rounded-xl mb-6 animate-pulse"></div>
+        <div className="h-18 bg-gray-700 rounded-xl animate-pulse mb-3"></div>
+        <div className="h-18 bg-gray-700 rounded-xl animate-pulse mb-3"></div>
+        <div className="h-18 bg-gray-700 rounded-xl animate-pulse mb-3"></div>
+        <div className="h-18 bg-gray-700 rounded-xl animate-pulse mb-3"></div>
+        <div className="h-18 bg-gray-700 rounded-xl animate-pulse"></div>
       </div>
     );
   if (error)

@@ -66,7 +66,7 @@ export default function Home() {
   }, [activeList, controversialListState, selectedKeyword, keywordsList]);
 
   return (
-    <main className="w-full min-h-screen flex flex-col gap-y-4 items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white overflow-x-hidden">
+    <main className="w-full min-h-screen flex flex-col gap-y-4 items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white">
       <h1 className="text-3xl md:text-4xl font-bold">
         Game Sentiment Dashboard
       </h1>
@@ -98,12 +98,12 @@ export default function Home() {
       </div>
 
       {/* Charts Section - Grid Layout */}
-      <div className="w-full max-w-full md:max-w-screen-lg grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Line Chart Container - Add fixed height */}
-        <div className="lg:col-span-2 h-[360px]">
+      <div className="w-full max-w-full md:max-w-screen-lg grid grid-cols-1 lg:grid-cols-3 gap-4 h-[360px]">
+        {/* Line Chart Container */}
+        <div className="lg:col-span-2">
           {/* Line Chart display logic (using chartLoading, chartError, chartData) */}
           {chartState.loading && (
-            <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center">
+            <div className="h-full bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center">
               <Loader2 className="h-12 w-12 text-blue-400 animate-spin" />
             </div>
           )}
@@ -145,11 +145,11 @@ export default function Home() {
             )}
         </div>
 
-        {/* Distribution Chart Container - Add fixed height */}
-        <div className="lg:col-span-1 h-[360px]">
+        {/* Distribution Chart Container */}
+        <div className="lg:col-span-1">
           {/* Distribution Chart display logic (using distributionLoading, distributionError, distributionData) */}
           {distributionState.loading && (
-            <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center">
+            <div className="h-full bg-gray-800 shadow-lg rounded-lg p-6 w-full flex items-center justify-center">
               <Loader2 className="h-10 w-10 text-blue-400 animate-spin" />
             </div>
           )}
@@ -223,9 +223,9 @@ export default function Home() {
             emulateTouch={true}
             infiniteLoop={false}
             transitionTime={400}
-            className="h-full"
+            className="h-full w-full"
           >
-            <div className="h-[420px]">
+            <div className="h-[420px] w-full">
               <SentimentList
                 title={getListTitle(
                   "Top 20 Controversies",
@@ -241,7 +241,7 @@ export default function Home() {
                 onKeywordClick={setSelectedKeyword}
               />
             </div>
-            <div className="h-[420px]">
+            <div className="h-[420px] w-full">
               <SentimentList
                 title={getListTitle(
                   "Top 20 Most Positive Games",
@@ -256,7 +256,7 @@ export default function Home() {
                 onKeywordClick={setSelectedKeyword}
               />
             </div>
-            <div className="h-[420px]">
+            <div className="h-[420px] w-full">
               <SentimentList
                 title={getListTitle(
                   "Top 20 Most Negative Games",
