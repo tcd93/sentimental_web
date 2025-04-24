@@ -70,11 +70,6 @@ export default function Home() {
       <h1 className="text-3xl md:text-4xl font-bold mb-8">
         Game Sentiment Dashboard
       </h1>
-
-      {/* Add Title for Controls Section */}
-      <div className="w-full max-w-full md:max-w-screen-lg mb-2 text-center">
-        <h2 className="text-lg font-semibold text-gray-400">Filters</h2>
-      </div>
       {/* Controls Section: Keyword Selector and Date Range */}
       <div className="w-full max-w-full md:max-w-screen-lg mb-6 flex flex-col md:flex-row justify-center items-center gap-4 md:gap-6 flex-wrap">
         <KeywordSelector
