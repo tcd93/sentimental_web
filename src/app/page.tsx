@@ -224,6 +224,9 @@ export default function Home() {
             infiniteLoop={false}
             transitionTime={400}
             className="h-full w-full"
+            // must add these two lines to enable mobile scrolling
+            preventMovementUntilSwipeScrollTolerance={true}
+            swipeScrollTolerance={50}
           >
             <div className="h-[420px] w-full">
               <SentimentList
