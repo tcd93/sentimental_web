@@ -35,11 +35,11 @@ export default function Home() {
 
   // Use custom hooks for data fetching and state
   const [activeList, setActiveList] = useState<
-    "positive" | "negative" | "gainers" | "losers"
-  >("positive");
-  const postiveListState = useSentimentList("positive", startDate, endDate);
+    "positive" | "negative" | "controversial"
+  >("controversial");
+  const positiveListState = useSentimentList("positive", startDate, endDate);
   const negativeListState = useSentimentList("negative", startDate, endDate);
-  const controversyListState = useSentimentDeltaList(startDate, endDate);
+  const controversialListState = useSentimentDeltaList(startDate, endDate);
 
   const { keywordsList } = useKeywords();
   const { chartState, distributionState, periodAveragesState } = useChartData(
@@ -51,19 +51,19 @@ export default function Home() {
   // Effect to set default keyword AFTER positive list loads (if none selected yet)
   useEffect(() => {
     if (
-      activeList === "positive" &&
-      !postiveListState.loading &&
-      postiveListState.data.length > 0 &&
+      activeList === "controversial" &&
+      !controversialListState.loading &&
+      controversialListState.data.length > 0 &&
       !selectedKeyword &&
       !keywordsList.loading
     ) {
-      if (keywordsList.data.includes(postiveListState.data[0].keyword)) {
-        setSelectedKeyword(postiveListState.data[0].keyword);
+      if (keywordsList.data.includes(controversialListState.data[0].keyword)) {
+        setSelectedKeyword(controversialListState.data[0].keyword);
       } else {
-        console.warn("Top positive game not found in distinct keywords list.");
+        console.warn("Top controversial game not found in distinct keywords list.");
       }
     }
-  }, [activeList, postiveListState, selectedKeyword, keywordsList]);
+  }, [activeList, controversialListState, selectedKeyword, keywordsList]);
 
   return (
     <main className="w-full min-h-screen flex flex-col items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white overflow-x-hidden">
@@ -201,23 +201,23 @@ export default function Home() {
         <div className="w-full h-[420px]">
           <Carousel
             selectedItem={
-              activeList === "positive"
+              activeList === "controversial"
                 ? 0
-                : activeList === "negative"
+                : activeList === "positive"
                 ? 1
-                : activeList === "gainers"
+                : activeList === "negative"
                 ? 2
                 : 3
             }
             onChange={(idx) =>
               setActiveList(
                 idx === 0
-                  ? "positive"
+                  ? "controversial"
                   : idx === 1
-                  ? "negative"
+                  ? "positive"
                   : idx === 2
-                  ? "gainers"
-                  : "losers"
+                  ? "negative"
+                  : "controversial"
               )
             }
             showThumbs={false}
@@ -233,13 +233,29 @@ export default function Home() {
             <div className="h-[420px]">
               <SentimentList
                 title={getListTitle(
+                  "Top 20 Controversies",
+                  startDate,
+                  endDate
+                )}
+                data={controversialListState.data}
+                loading={controversialListState.loading}
+                error={controversialListState.error}
+                metric="volatility"
+                // oil-slick gradient color
+                colorClass="bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent"
+                onKeywordClick={setSelectedKeyword}
+              />
+            </div>
+            <div className="h-[420px]">
+              <SentimentList
+                title={getListTitle(
                   "Top 20 Most Positive Games",
                   startDate,
                   endDate
                 )}
-                data={postiveListState.data}
-                loading={postiveListState.loading}
-                error={postiveListState.error}
+                data={positiveListState.data}
+                loading={positiveListState.loading}
+                error={positiveListState.error}
                 metric="avg_pos"
                 colorClass="text-green-400"
                 onKeywordClick={setSelectedKeyword}
@@ -257,21 +273,6 @@ export default function Home() {
                 error={negativeListState.error}
                 metric="avg_neg"
                 colorClass="text-red-400"
-                onKeywordClick={setSelectedKeyword}
-              />
-            </div>
-            <div className="h-[420px]">
-              <SentimentList
-                title={getListTitle(
-                  "Top 20 Controversies",
-                  startDate,
-                  endDate
-                )}
-                data={controversyListState.data}
-                loading={controversyListState.loading}
-                error={controversyListState.error}
-                metric="volatility"
-                colorClass="text-yellow-400"
                 onKeywordClick={setSelectedKeyword}
               />
             </div>
