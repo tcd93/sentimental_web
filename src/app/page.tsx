@@ -1,7 +1,7 @@
 "use client"; // Add this directive for client-side fetching and state
 
 import { useState, useEffect } from "react";
-import SentimentTimeSeriesChart from "@/components/SentimentChart";
+import SentimentTimeSeriesChart from "@/components/SentimentTimeSeriesChart";
 import { KeywordSelector } from "@/components/KeywordSelector";
 import { Loader2 } from "lucide-react";
 import SentimentDistributionChart from "@/components/SentimentDistributionChart";
