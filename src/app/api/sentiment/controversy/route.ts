@@ -36,6 +36,9 @@ const parseAthenaResults = (
         case "keyword":
           obj[key] = value;
           break;
+        case "count":
+          obj[key] =Number(value);
+          break;
         case "score":
           obj[key] = value !== undefined ? Number(value) : null;
           break;
@@ -94,21 +97,23 @@ export async function GET(request: Request) {
             keyword,
             cast(created_at AS date) AS sentiment_date,
             avg(sentiment_score_positive) AS avg_pos,
-            avg(sentiment_score_negative) AS avg_neg
+            avg(sentiment_score_negative) AS avg_neg,
+            count(1) AS daily_count
         FROM "${ATHENA_DB}"."${ATHENA_TABLE}"
         WHERE cast(created_at AS date) BETWEEN date('${startDate}') AND date('${endDate}')
         GROUP BY keyword, cast(created_at AS date)
-        HAVING COUNT(1) > 20
     ), volatility AS (
         SELECT
             keyword,
             stddev_samp(avg_pos) AS pos_volatility,
-            stddev_samp(avg_neg) AS neg_volatility
+            stddev_samp(avg_neg) AS neg_volatility,
+            sum(daily_count) AS total_count
         FROM daily_avg
         GROUP BY keyword
     ), ranked AS (
         SELECT
             keyword,
+            total_count as count,
             CASE
                 WHEN pos_volatility >= neg_volatility THEN pos_volatility
                 ELSE neg_volatility
@@ -118,6 +123,7 @@ export async function GET(request: Request) {
                 ELSE 'NEGATIVE'
             END AS type
         FROM volatility
+        WHERE total_count > 20
     )
     SELECT *
     FROM ranked
