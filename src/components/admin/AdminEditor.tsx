@@ -2,11 +2,11 @@
 import { useReducer, useEffect, useState } from "react";
 import EditKeywordModal from "./EditKeywordModal";
 import {
-  RedditKeywordItem,
-  SteamKeywordItem,
   ConfigData,
   ModalState,
   KeywordItem,
+  RedditKeywordItemSchema,
+  SteamKeywordItemSchema,
 } from "../../lib/types/admin/types";
 import { adminStatusReducer } from "../../lib/reducers/admin/adminStatusReducer";
 import SourceTabs from "./SourceTabs";
@@ -38,26 +38,17 @@ export default function AdminEditor() {
       .then((data) => {
         if (data.data && data.data[0]) {
           try {
-            const parsedData =
+            const raw =
               typeof data.data[0] === "string"
                 ? JSON.parse(data.data[0])
                 : data.data[0];
-            if (parsedData.source) {
-              Object.keys(parsedData.source).forEach((source) => {
-                parsedData.source[source] = parsedData.source[source].map(
-                  (item: unknown) => {
-                    if (source === "reddit") {
-                      return new RedditKeywordItem(
-                        item as Partial<RedditKeywordItem>
-                      );
-                    }
-                    return new SteamKeywordItem(
-                      item as Partial<SteamKeywordItem>
-                    );
-                  }
-                );
-              });
-            }
+            // Parse the raw data into the expected ConfigData format
+            const parsedData: ConfigData = {
+              source: {
+                reddit: raw.source.reddit || [],
+                steam: raw.source.steam || [],
+              },
+            };
             setConfigData(parsedData);
             if (
               parsedData.source &&
@@ -125,7 +116,7 @@ export default function AdminEditor() {
 
   function handleRemoveKeyword(source: "reddit" | "steam", index: number) {
     if (!configData || !configData.source[source]) return;
-    const updatedData = { ...configData };
+    const updatedData: ConfigData = { ...configData };
     updatedData.source[source].splice(index, 1);
     setConfigData(updatedData);
   }
@@ -148,24 +139,20 @@ export default function AdminEditor() {
     setModalState({ open: false });
   }
 
-  function handleSaveModal(
-    savedItemFromModal: RedditKeywordItem | SteamKeywordItem
-  ) {
+  function handleSaveModal(savedItemFromModal: KeywordItem) {
     if (!configData || !activeSource) return;
     const updatedData = { ...configData };
+    let parsedItem: KeywordItem = savedItemFromModal;
+    if (activeSource === "reddit") {
+      parsedItem = RedditKeywordItemSchema.parse(savedItemFromModal);
+    } else if (activeSource === "steam") {
+      parsedItem = SteamKeywordItemSchema.parse(savedItemFromModal);
+    }
     if (modalState.open && modalState.index === null) {
-      if (activeSource === "reddit") {
-        savedItemFromModal = new RedditKeywordItem(
-          savedItemFromModal as Partial<RedditKeywordItem>
-        );
-      }
-      if (activeSource === "steam") {
-        savedItemFromModal = new SteamKeywordItem(
-          savedItemFromModal as Partial<SteamKeywordItem>
-        );
-      }
+      // Add new item to the beginning of the list
+      (updatedData.source[activeSource] as KeywordItem[]).unshift(parsedItem);
     } else if (modalState.open && modalState.index !== null) {
-      updatedData.source[activeSource][modalState.index] = savedItemFromModal;
+      updatedData.source[activeSource][modalState.index] = parsedItem;
     }
     setConfigData(updatedData);
     handleCloseModal();
@@ -182,7 +169,7 @@ export default function AdminEditor() {
     ) ?? [];
 
   if (!configData) {
-    dispatchStatus({ type: "ERROR", error: "No config data available." });
+    console.error("No config data available");
     return <div className="p-4 text-white">No config data available.</div>;
   }
 
@@ -257,7 +244,7 @@ export default function AdminEditor() {
       {isModalOpen && (
         <EditKeywordModal
           onClose={handleCloseModal}
-          modalState={modalState}
+          item={modalState.item}
           source={activeSource}
           onSave={handleSaveModal}
         />
@@ -274,7 +261,7 @@ function getCleanedConfig(config: ConfigData): Partial<ConfigData> {
     const sourceItems = config.source[sourceKey as keyof typeof config.source];
     cleanedOutput[sourceKey] = sourceItems
       .map((item: KeywordItem) => {
-        return cleanObject(item);
+        return cleanObject(item, sourceKey);
       })
       .filter((item): item is Partial<KeywordItem> => item !== null);
 
@@ -286,9 +273,15 @@ function getCleanedConfig(config: ConfigData): Partial<ConfigData> {
   return cleanedOutput;
 }
 
-function cleanObject<T extends KeywordItem>(obj: T): Partial<T> {
+function cleanObject<T extends KeywordItem>(
+  obj: T,
+  source: string
+): Partial<T> {
+  if (source !== "reddit" && source !== "steam")
+    throw new Error("Invalid source type. Expected 'reddit' or 'steam'.");
+
   const defaults: Partial<KeywordItem> =
-    obj.source === "reddit" ? REDDIT_DEFAULTS : STEAM_DEFAULTS;
+    source === "reddit" ? REDDIT_DEFAULTS : STEAM_DEFAULTS;
 
   const cleaned: Partial<T> = {};
   for (const key in obj) {

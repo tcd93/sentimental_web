@@ -1,17 +1,27 @@
 // src/app/admin/EditKeywordModal.tsx
 import { useState, useEffect } from "react";
-import { KeywordItem, ModalState, RedditKeywordItem, SteamKeywordItem } from "../../lib/types/admin/types";
+import {
+  KeywordItem,
+  RedditKeywordItemSchema,
+  SteamKeywordItemSchema,
+  RedditSortEnum,
+  RedditTimeFilterEnum,
+  SteamSortEnum,
+  SteamTimeFilterEnum,
+  RedditKeywordItem,
+  SteamKeywordItem,
+} from "../../lib/types/admin/types";
 
 interface EditKeywordModalProps {
   onClose: () => void;
-  modalState: ModalState;
+  item: KeywordItem | null;
   source: string;
-  onSave: (item: RedditKeywordItem | SteamKeywordItem) => void;
+  onSave: (item: KeywordItem) => void;
 }
 
 export default function EditKeywordModal({
   onClose,
-  modalState,
+  item,
   source,
   onSave,
 }: EditKeywordModalProps) {
@@ -20,37 +30,20 @@ export default function EditKeywordModal({
   const [originalItem, setOriginalItem] = useState<KeywordItem | null>(null);
 
   useEffect(() => {
-    if (!modalState.open) {
-      setEditingItem(null);
-      setOriginalItem(null);
-      return;
-    }
-    if (modalState.item) {
-      setEditingItem(
-        modalState.item.source === "reddit"
-          ? new RedditKeywordItem({ ...modalState.item })
-          : new SteamKeywordItem({ ...modalState.item })
-      );
-      setOriginalItem(
-        modalState.item.source === "reddit"
-          ? new RedditKeywordItem({ ...modalState.item })
-          : new SteamKeywordItem({ ...modalState.item })
-      );
+    if (item) {
+      setEditingItem(item);
+      setOriginalItem(item);
     } else {
-      setEditingItem(
-        source === "reddit"
-          ? new RedditKeywordItem({ keyword: "" })
-          : new SteamKeywordItem({ keyword: "" })
-      );
+      setEditingItem({ keyword: "" });
       setOriginalItem(null);
     }
-  }, [modalState, source]);
+  }, [item, source]);
 
   function handleFieldChange(field: string, value: string) {
     setEditingItem((prev) => {
       if (!prev) return prev;
-      if (prev.source === "reddit") {
-        const updated = new RedditKeywordItem({ ...prev });
+      if (source === "reddit") {
+        const updated = { ...prev } as RedditKeywordItem;
         if (field === "keyword") updated.keyword = value;
         else if (field === "subreddits") {
           updated.subreddits = value
@@ -58,27 +51,27 @@ export default function EditKeywordModal({
             .map((s) => s.trim())
             .filter(Boolean);
         } else if (field === "redditTimeFilter") {
-          updated.time_filter = value as import("../../lib/types/admin/types").RedditTimeFilter;
+          updated.time_filter = value as typeof RedditTimeFilterEnum._type;
         } else if (field === "redditSort") {
-          updated.sort = value as import("../../lib/types/admin/types").RedditSort;
+          updated.sort = value as typeof RedditSortEnum._type;
         } else if (field === "redditPostLimit") {
           updated.post_limit = value === "" ? undefined : parseInt(value, 10);
         } else if (field === "redditTopCommentsLimit") {
           updated.top_comments_limit =
             value === "" ? undefined : parseInt(value, 10);
         }
-        return updated;
+        return RedditKeywordItemSchema.parse(updated);
       } else {
-        const updated = new SteamKeywordItem({ ...prev });
+        const updated = { ...prev } as SteamKeywordItem;
         if (field === "keyword") updated.keyword = value.trim();
         else if (field === "steamTimeFilter") {
-          updated.time_filter = value as import("../../lib/types/admin/types").SteamTimeFilter;
+          updated.time_filter = value as typeof SteamTimeFilterEnum._type;
         } else if (field === "steamSort") {
-          updated.sort = value as import("../../lib/types/admin/types").SteamSort;
+          updated.sort = value as typeof SteamSortEnum._type;
         } else if (field === "steamPostLimit") {
           updated.post_limit = value === "" ? undefined : parseInt(value, 10);
         }
-        return updated;
+        return SteamKeywordItemSchema.parse(updated);
       }
     });
   }
@@ -90,7 +83,7 @@ export default function EditKeywordModal({
   }
   const isNew = originalItem === null;
 
-  if (!modalState.open || !editingItem) return null;
+  if (!editingItem) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
@@ -116,7 +109,7 @@ export default function EditKeywordModal({
               required
             />
           </div>
-          {editingItem.source === "reddit" && (
+          {source === "reddit" && (
             <>
               <div>
                 <label
@@ -128,7 +121,7 @@ export default function EditKeywordModal({
                 <input
                   id="subreddits"
                   type="text"
-                  value={editingItem.subreddits?.join(", ") || ""}
+                  value={(editingItem as RedditKeywordItem).subreddits?.join(", ") || ""}
                   onChange={(e) =>
                     handleFieldChange("subreddits", e.target.value)
                   }
@@ -148,17 +141,15 @@ export default function EditKeywordModal({
                 </label>
                 <select
                   id="reddit-sort"
-                  value={editingItem.sort || "top"}
-                  onChange={(e) =>
-                    handleFieldChange("redditSort", e.target.value)
-                  }
+                  value={editingItem.sort || RedditSortEnum.options[2]}
+                  onChange={(e) => handleFieldChange("redditSort", e.target.value)}
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 >
-                  <option value="top">Top</option>
-                  <option value="relevance">Relevance</option>
-                  <option value="hot">Hot</option>
-                  <option value="new">New</option>
-                  <option value="comments">Comments</option>
+                  {RedditSortEnum.options.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -170,18 +161,27 @@ export default function EditKeywordModal({
                 </label>
                 <select
                   id="reddit-time"
-                  value={editingItem.time_filter || "day"}
-                  onChange={(e) =>
-                    handleFieldChange("redditTimeFilter", e.target.value)
-                  }
+                  value={editingItem.time_filter || RedditTimeFilterEnum.options[4]}
+                  onChange={(e) => handleFieldChange("redditTimeFilter", e.target.value)}
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 >
-                  <option value="day">Past 24 Hours</option>
-                  <option value="all">All Time</option>
-                  <option value="year">Past Year</option>
-                  <option value="month">Past Month</option>
-                  <option value="week">Past Week</option>
-                  <option value="hour">Past Hour</option>
+                  {RedditTimeFilterEnum.options.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt === "day"
+                        ? "Past 24 Hours"
+                        : opt === "all"
+                        ? "All Time"
+                        : opt === "year"
+                        ? "Past Year"
+                        : opt === "month"
+                        ? "Past Month"
+                        : opt === "week"
+                        ? "Past Week"
+                        : opt === "hour"
+                        ? "Past Hour"
+                        : opt}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -217,7 +217,7 @@ export default function EditKeywordModal({
                   id="reddit-comments-limit"
                   type="number"
                   min="0"
-                  value={editingItem.top_comments_limit ?? ""}
+                  value={(editingItem as RedditKeywordItem).top_comments_limit ?? ""}
                   onChange={(e) =>
                     handleFieldChange("redditTopCommentsLimit", e.target.value)
                   }
@@ -230,7 +230,7 @@ export default function EditKeywordModal({
               </div>
             </>
           )}
-          {editingItem.source === "steam" && (
+          {source === "steam" && (
             <>
               <div>
                 <label
@@ -241,17 +241,25 @@ export default function EditKeywordModal({
                 </label>
                 <select
                   id="steam-time"
-                  value={editingItem.time_filter || "day"}
-                  onChange={(e) =>
-                    handleFieldChange("steamTimeFilter", e.target.value)
-                  }
+                  value={editingItem.time_filter || SteamTimeFilterEnum.options[4]}
+                  onChange={(e) => handleFieldChange("steamTimeFilter", e.target.value)}
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 >
-                  <option value="day">Past Day</option>
-                  <option value="all">All Time</option>
-                  <option value="year">Past Year</option>
-                  <option value="month">Past Month</option>
-                  <option value="week">Past Week</option>
+                  {SteamTimeFilterEnum.options.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt === "day"
+                        ? "Past Day"
+                        : opt === "all"
+                        ? "All Time"
+                        : opt === "year"
+                        ? "Past Year"
+                        : opt === "month"
+                        ? "Past Month"
+                        : opt === "week"
+                        ? "Past Week"
+                        : opt}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -263,15 +271,21 @@ export default function EditKeywordModal({
                 </label>
                 <select
                   id="steam-sort"
-                  value={editingItem.sort || "top"}
-                  onChange={(e) =>
-                    handleFieldChange("steamSort", e.target.value)
-                  }
+                  value={editingItem.sort || SteamSortEnum.options[2]}
+                  onChange={(e) => handleFieldChange("steamSort", e.target.value)}
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 >
-                  <option value="top">Helpful</option>
-                  <option value="created">Created Date</option>
-                  <option value="updated">Updated Date</option>
+                  {SteamSortEnum.options.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt === "top"
+                        ? "Helpful"
+                        : opt === "created"
+                        ? "Created Date"
+                        : opt === "updated"
+                        ? "Updated Date"
+                        : opt}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

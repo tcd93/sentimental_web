@@ -1,61 +1,5 @@
 // src/app/admin/types.ts
-
-// Enums for sort and time_filter fields
-export type RedditSort = "relevance" | "hot" | "top" | "new" | "comments";
-export type RedditTimeFilter =
-  | "all"
-  | "year"
-  | "month"
-  | "week"
-  | "day"
-  | "hour";
-export type SteamSort = "created" | "updated" | "top";
-export type SteamTimeFilter = "all" | "year" | "month" | "week" | "day";
-
-// Class-based model for RedditKeywordItem
-export class RedditKeywordItem {
-  public source = "reddit" as const;
-  public keyword: string;
-  public subreddits?: string[];
-  public top_comments_limit?: number;
-  public time_filter?: RedditTimeFilter;
-  public post_limit?: number;
-  public sort?: RedditSort;
-
-  constructor(data: Partial<RedditKeywordItem>) {
-    this.keyword = data.keyword || "";
-    this.subreddits = data.subreddits;
-    this.top_comments_limit = data.top_comments_limit;
-    this.time_filter = data.time_filter;
-    this.post_limit = data.post_limit;
-    this.sort = data.sort;
-  }
-}
-
-// Class-based model for SteamKeywordItem
-export class SteamKeywordItem {
-  public source = "steam" as const;
-  public keyword: string;
-  public time_filter?: SteamTimeFilter;
-  public sort?: SteamSort;
-  public post_limit?: number;
-
-  constructor(data: Partial<SteamKeywordItem>) {
-    this.keyword = data.keyword || "";
-    this.time_filter = data.time_filter;
-    this.sort = data.sort;
-    this.post_limit = data.post_limit;
-  }
-}
-
-// Discriminated union for keyword items (now classes)
-export type KeywordItem = RedditKeywordItem | SteamKeywordItem;
-
-export function isRedditKeywordItem(
-  item: KeywordItem | Partial<KeywordItem>
-): item is RedditKeywordItem {
-  return item.source === "reddit";
-}
+import { z } from "zod";
 
 // --- Admin status reducer and types ---
 export type AdminStatus = {
@@ -77,17 +21,39 @@ export type ModalState =
   | { open: false }
   | { open: true; index: number | null; item: KeywordItem | null };
 
-// Use Record for config source
-export class ConfigData {
-  source: {
-    reddit: RedditKeywordItem[];
-    steam: SteamKeywordItem[];
-  };
+// Zod enums for reuse
+export const RedditSortEnum = z.enum(["relevance", "hot", "top", "new", "comments"]);
+export const RedditTimeFilterEnum = z.enum(["all", "year", "month", "week", "day", "hour"]);
+export const SteamSortEnum = z.enum(["created", "updated", "top"]);
+export const SteamTimeFilterEnum = z.enum(["all", "year", "month", "week", "day"]);
 
-  constructor(config: Partial<ConfigData>) {
-    this.source = {
-      reddit: config.source?.reddit || [],
-      steam: config.source?.steam || [],
-    };
-  }
-}
+export const RedditKeywordItemSchema = z.object({
+  keyword: z.string(),
+  subreddits: z.array(z.string()).optional(),
+  top_comments_limit: z.number().optional(),
+  time_filter: RedditTimeFilterEnum.optional(),
+  post_limit: z.number().optional(),
+  sort: RedditSortEnum.optional(),
+});
+
+export const SteamKeywordItemSchema = z.object({
+  keyword: z.string(),
+  time_filter: SteamTimeFilterEnum.optional(),
+  sort: SteamSortEnum.optional(),
+  post_limit: z.number().optional(),
+});
+
+export type RedditKeywordItem = z.infer<typeof RedditKeywordItemSchema>;
+export type SteamKeywordItem = z.infer<typeof SteamKeywordItemSchema>;
+
+export type KeywordItem = RedditKeywordItem | SteamKeywordItem;
+
+// Use Record for config source
+export const ConfigDataSchema = z.object({
+  source: z.object({
+    reddit: z.array(RedditKeywordItemSchema),
+    steam: z.array(SteamKeywordItemSchema),
+  }),
+});
+
+export type ConfigData = z.infer<typeof ConfigDataSchema>;

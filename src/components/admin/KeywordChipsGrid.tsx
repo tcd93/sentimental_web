@@ -1,5 +1,5 @@
 import React from "react";
-import { KeywordItem, isRedditKeywordItem } from "../../lib/types/admin/types";
+import { KeywordItem, RedditKeywordItem } from "../../lib/types/admin/types";
 
 type KeywordChipsGridProps = {
   filteredKeywords: KeywordItem[];
@@ -34,14 +34,15 @@ const KeywordChipsGrid: React.FC<KeywordChipsGridProps> = ({
               >
                 {item.keyword}
               </h4>
-              {isRedditKeywordItem(item) && (item.subreddits?.length ?? 0) > 0 && (
-                <p
-                  className="text-xs text-gray-400 truncate"
-                  title={item.subreddits?.join(", ")}
-                >
-                  Subs: {item.subreddits?.join(", ")}
-                </p>
-              )}
+              {activeSource === "reddit" &&
+                ((item as RedditKeywordItem).subreddits?.length ?? 0) > 0 && (
+                  <p
+                    className="text-xs text-gray-400 truncate"
+                    title={(item as RedditKeywordItem).subreddits?.join(", ")}
+                  >
+                    Subs: {(item as RedditKeywordItem).subreddits?.join(", ")}
+                  </p>
+                )}
             </div>
             <button
               onClick={(e) => {
