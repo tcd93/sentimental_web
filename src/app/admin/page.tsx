@@ -9,8 +9,7 @@ export default async function AdminPage() {
     redirect("/admin/login");
   }
   return (
-    <main className="max-w-2xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-4">Admin Config Editor</h1>
+    <main className="w-full h-full mx-auto">
       <AdminEditor />
     </main>
   );
