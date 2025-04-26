@@ -1,7 +1,5 @@
 // src/app/admin/types.ts
 
-import { cleanRedditItem, cleanSteamItem } from "./utils";
-
 // Enums for sort and time_filter fields
 export type RedditSort = "relevance" | "hot" | "top" | "new" | "comments";
 export type RedditTimeFilter =
@@ -32,10 +30,6 @@ export class RedditKeywordItem {
     this.post_limit = data.post_limit;
     this.sort = data.sort;
   }
-
-  cleanForSave(): Partial<RedditKeywordItem> {
-    return cleanRedditItem(this);
-  }
 }
 
 // Class-based model for SteamKeywordItem
@@ -51,10 +45,6 @@ export class SteamKeywordItem {
     this.time_filter = data.time_filter;
     this.sort = data.sort;
     this.post_limit = data.post_limit;
-  }
-
-  cleanForSave(): Partial<SteamKeywordItem> {
-    return cleanSteamItem(this);
   }
 }
 

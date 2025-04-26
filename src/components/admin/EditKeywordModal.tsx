@@ -1,6 +1,6 @@
 // src/app/admin/EditKeywordModal.tsx
 import { useState, useEffect } from "react";
-import { KeywordItem, ModalState, RedditKeywordItem, SteamKeywordItem } from "./types";
+import { KeywordItem, ModalState, RedditKeywordItem, SteamKeywordItem } from "../../lib/types/admin/types";
 
 interface EditKeywordModalProps {
   onClose: () => void;
@@ -58,9 +58,9 @@ export default function EditKeywordModal({
             .map((s) => s.trim())
             .filter(Boolean);
         } else if (field === "redditTimeFilter") {
-          updated.time_filter = value as import("./types").RedditTimeFilter;
+          updated.time_filter = value as import("../../lib/types/admin/types").RedditTimeFilter;
         } else if (field === "redditSort") {
-          updated.sort = value as import("./types").RedditSort;
+          updated.sort = value as import("../../lib/types/admin/types").RedditSort;
         } else if (field === "redditPostLimit") {
           updated.post_limit = value === "" ? undefined : parseInt(value, 10);
         } else if (field === "redditTopCommentsLimit") {
@@ -72,9 +72,9 @@ export default function EditKeywordModal({
         const updated = new SteamKeywordItem({ ...prev });
         if (field === "keyword") updated.keyword = value.trim();
         else if (field === "steamTimeFilter") {
-          updated.time_filter = value as import("./types").SteamTimeFilter;
+          updated.time_filter = value as import("../../lib/types/admin/types").SteamTimeFilter;
         } else if (field === "steamSort") {
-          updated.sort = value as import("./types").SteamSort;
+          updated.sort = value as import("../../lib/types/admin/types").SteamSort;
         } else if (field === "steamPostLimit") {
           updated.post_limit = value === "" ? undefined : parseInt(value, 10);
         }

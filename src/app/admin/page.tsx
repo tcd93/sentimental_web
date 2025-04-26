@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import AdminEditor from "./AdminEditor";
+import AdminEditor from "../../components/admin/AdminEditor";
 
 export default async function AdminPage() {
   const cookieStore = await cookies();
