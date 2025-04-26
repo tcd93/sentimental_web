@@ -1,17 +1,13 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-
-interface KeywordItem {
-  keyword: string;
-  isNew?: boolean;
-  isEdited?: boolean;
-}
-
-interface ConfigData {
-  source: {
-    [key: string]: KeywordItem[];
-  };
-}
+import EditKeywordModal from "./EditKeywordModal";
+import {
+  KeywordItem,
+  RedditKeywordItem,
+  SteamKeywordItem,
+  ConfigData,
+  isRedditKeywordItem,
+} from "./types";
 
 export default function AdminEditor() {
   const [configData, setConfigData] = useState<ConfigData | null>(null);
@@ -19,12 +15,13 @@ export default function AdminEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [, setSuccess] = useState(false);
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [newKeyword, setNewKeyword] = useState("");
-  const newKeywordInputRef = useRef<HTMLInputElement>(null);
   const keywordsContainerRef = useRef<HTMLDivElement>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
+  const [isAddingNewItem, setIsAddingNewItem] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -42,11 +39,23 @@ export default function AdminEditor() {
             if (parsedData.source) {
               Object.keys(parsedData.source).forEach((source) => {
                 parsedData.source[source] = parsedData.source[source].map(
-                  (item: { keyword: string }) => ({
-                    ...item,
-                    isNew: false,
-                    isEdited: false,
-                  })
+                  (item: { keyword: string; subreddits?: string[] }) => {
+                    if (source === "reddit") {
+                      return {
+                        keyword: item.keyword,
+                        subreddits: item.subreddits || [],
+                        source: "reddit" as const,
+                        isNew: false,
+                        isEdited: false,
+                      };
+                    }
+                    return {
+                      keyword: item.keyword,
+                      source: "steam" as const,
+                      isNew: false,
+                      isEdited: false,
+                    };
+                  }
                 );
               });
             }
@@ -78,17 +87,47 @@ export default function AdminEditor() {
     setError("");
     setSuccess(false);
     try {
-      // Remove the isNew and isEdited flags before sending to the server
       const dataToSave = JSON.parse(JSON.stringify(configData)) as ConfigData;
 
-      if (dataToSave && dataToSave.source) {
-        Object.keys(dataToSave.source).forEach((source) => {
-          if (dataToSave.source) {
-            dataToSave.source[source] = dataToSave.source[source].map(
-              ({ keyword }) => ({ keyword })
-            );
-          }
+      if (dataToSave?.source) {
+        Object.keys(dataToSave.source).forEach((sourceKey) => {
+          const sourceItems = dataToSave.source[sourceKey];
+          dataToSave.source[sourceKey] = sourceItems.map((item: KeywordItem) => {
+            const { keyword, source, ...rest } = item;
+            const cleanItem = { keyword, source, ...rest };
+
+            delete (cleanItem as Partial<KeywordItem>).isNew;
+            delete (cleanItem as Partial<KeywordItem>).isEdited;
+
+            if (cleanItem.source === "reddit") {
+              const redditItem = cleanItem as Partial<RedditKeywordItem>;
+              if (!redditItem.subreddits || redditItem.subreddits.length === 0) delete redditItem.subreddits;
+              if (redditItem.time_filter === 'all') delete redditItem.time_filter;
+              if (redditItem.sort === 'relevance') delete redditItem.sort;
+              if (redditItem.post_limit === undefined || redditItem.post_limit <= 0) delete redditItem.post_limit;
+              if (redditItem.top_comments_limit === undefined || redditItem.top_comments_limit <= 0) delete redditItem.top_comments_limit;
+            } else if (cleanItem.source === "steam") {
+              const steamItem = cleanItem as Partial<SteamKeywordItem>;
+              if (steamItem.time_filter === 'all') delete steamItem.time_filter;
+              if (steamItem.sort === 'created') delete steamItem.sort;
+              if (steamItem.post_limit === undefined || steamItem.post_limit <= 0) delete steamItem.post_limit;
+            } else {
+               console.error("Item found without valid source during save:", cleanItem);
+               return null;
+            }
+
+            if (!cleanItem.keyword) {
+              console.error("Attempting to save item without keyword:", cleanItem);
+              return null;
+            }
+
+            return cleanItem as KeywordItem;
+          }).filter(Boolean) as KeywordItem[];
         });
+      } else {
+         setError("No data to save.");
+         setSaving(false);
+         return;
       }
 
       const res = await fetch("/api/admin/config", {
@@ -99,29 +138,26 @@ export default function AdminEditor() {
 
       if (res.ok) {
         setSuccess(true);
-
-        // After a successful save, remove all highlighting by setting isNew and isEdited to false
         if (configData && configData.source) {
-          const updatedData = { ...configData };
-          Object.keys(updatedData.source).forEach((source) => {
-            updatedData.source[source] = updatedData.source[source].map(
-              (item) => ({
-                ...item,
-                isNew: false,
-                isEdited: false,
-              })
-            );
-          });
-
-          setConfigData(updatedData);
-          setOriginalData(JSON.parse(JSON.stringify(updatedData)));
+           const savedState = JSON.parse(JSON.stringify(dataToSave));
+           Object.keys(savedState.source).forEach(sourceKey => {
+               savedState.source[sourceKey] = savedState.source[sourceKey].map((item: KeywordItem) => ({
+                   ...item,
+                   isNew: false,
+                   isEdited: false,
+                   ...(isRedditKeywordItem(item) && { subreddits: item.subreddits ?? [] }),
+               }));
+           });
+          setConfigData(savedState);
+          setOriginalData(JSON.parse(JSON.stringify(savedState)));
         }
       } else {
         const data = await res.json();
         setError(data.error || "Failed to save");
       }
-    } catch {
-      setError("Failed to save config");
+    } catch (err) {
+       console.error("Save error:", err);
+      setError("Failed to save config. Check console for details.");
     } finally {
       setSaving(false);
     }
@@ -133,82 +169,86 @@ export default function AdminEditor() {
       setError("");
       setSuccess(false);
       setSearchTerm("");
-      setNewKeyword("");
-    }
-  }
-
-  function handleAddKeyword() {
-    if (!configData || !activeSource || !newKeyword.trim()) return;
-
-    const updatedData = { ...configData };
-    updatedData.source[activeSource].unshift({
-      keyword: newKeyword.trim(),
-      isNew: true,
-      isEdited: false,
-    });
-    setConfigData(updatedData);
-    setNewKeyword("");
-
-    // Focus back on the input for adding another keyword
-    if (newKeywordInputRef.current) {
-      newKeywordInputRef.current.focus();
     }
   }
 
   function handleRemoveKeyword(source: string, index: number) {
-    if (!configData) return;
+    if (!configData || !configData.source[source]) return;
     const updatedData = { ...configData };
     updatedData.source[source].splice(index, 1);
     setConfigData(updatedData);
   }
 
-  function handleKeywordChange(source: string, index: number, value: string) {
-    if (!configData || !originalData) return;
-    const updatedData = { ...configData };
-    const currentValue = updatedData.source[source][index].keyword;
-    
-    // Find the original value if it exists at the same position
-    let originalValue: string | undefined;
-    if (originalData.source[source] && originalData.source[source][index]) {
-      originalValue = originalData.source[source][index].keyword;
-    }
-    
-    // Update the value
-    if (currentValue !== value) {
-      // Determine if this edit should be marked or unmarked
-      const shouldBeMarkedAsEdited = originalValue !== undefined && originalValue !== value;
-      
-      updatedData.source[source][index] = {
-        ...updatedData.source[source][index],
-        keyword: value,
-        isEdited: shouldBeMarkedAsEdited
-      };
-      setConfigData(updatedData);
-    }
-  }
-
   function handleAddSource() {
     const sourceName = prompt("Enter new source name:");
-    if (sourceName && sourceName.trim() && configData) {
+    if (sourceName && sourceName.trim() && configData && !configData.source[sourceName.trim()]) {
+      const trimmedName = sourceName.trim();
       const updatedData = { ...configData };
       if (!updatedData.source) {
         updatedData.source = {};
       }
-      updatedData.source[sourceName] = [];
+      updatedData.source[trimmedName] = [];
       setConfigData(updatedData);
-      setActiveSource(sourceName);
+      setActiveSource(trimmedName);
+    } else if (sourceName && configData?.source[sourceName.trim()]) {
+        alert(`Source "${sourceName.trim()}" already exists.`);
     }
   }
 
+  function openAddModal() {
+    if (!activeSource) return;
+    setIsAddingNewItem(true);
+    setCurrentItemIndex(null);
+    setIsModalOpen(true);
+  }
+
+  function openEditModal(index: number) {
+    if (!activeSource || !configData?.source[activeSource]?.[index]) return;
+    setIsAddingNewItem(false);
+    setCurrentItemIndex(index);
+    setIsModalOpen(true);
+  }
+
+  function handleCloseModal() {
+    setIsModalOpen(false);
+    setCurrentItemIndex(null);
+    setIsAddingNewItem(false);
+  }
+
+  function handleSaveModal(savedItem: KeywordItem) {
+    if (!configData || !activeSource) return;
+
+    const updatedData = { ...configData };
+
+    if (isAddingNewItem) {
+      updatedData.source[activeSource].unshift({
+          ...savedItem,
+          isNew: true,
+          isEdited: false
+      });
+    } else if (currentItemIndex !== null) {
+      const originalItem = configData.source[activeSource][currentItemIndex];
+      updatedData.source[activeSource][currentItemIndex] = {
+        ...savedItem,
+        isNew: originalItem.isNew,
+        isEdited: originalItem.isNew ? false : savedItem.isEdited,
+      };
+    }
+
+    setConfigData(updatedData);
+    handleCloseModal();
+  }
+
   if (loading) return <div className="p-4 text-white">Loading config...</div>;
+
+  const currentSourceExists = activeSource && configData?.source && activeSource in configData.source;
 
   const hasChanges =
     JSON.stringify(configData) !== JSON.stringify(originalData);
   const sources = configData?.source ? Object.keys(configData.source) : [];
 
-  // Filter keywords based on search term
   const filteredKeywords =
-    activeSource && configData?.source?.[activeSource]
+    currentSourceExists && activeSource
       ? configData.source[activeSource].filter(
           (item) =>
             searchTerm.trim() === "" ||
@@ -216,13 +256,16 @@ export default function AdminEditor() {
         )
       : [];
 
+  const itemToEdit = currentSourceExists && activeSource && currentItemIndex !== null
+      ? configData.source[activeSource]?.[currentItemIndex]
+      : null;
+
   return (
     <main className="min-h-screen w-full flex flex-col bg-gray-900 text-white">
       <div className="flex flex-col items-center p-6 w-full">
         <h1 className="text-3xl font-bold mb-6">Admin Config Editor</h1>
 
         <div className="bg-gray-800 rounded-lg w-full max-w-5xl">
-          {/* Source Tabs */}
           <div className="border-b border-gray-700 p-0">
             <div className="flex items-center overflow-x-auto">
               {sources.map((source) => (
@@ -236,7 +279,6 @@ export default function AdminEditor() {
                   onClick={() => {
                     setActiveSource(source);
                     setSearchTerm("");
-                    setNewKeyword("");
                   }}
                 >
                   {source}
@@ -251,64 +293,46 @@ export default function AdminEditor() {
             </div>
           </div>
 
-          {/* Keywords Editor */}
-          {activeSource && configData?.source?.[activeSource] && (
+          {currentSourceExists && activeSource ? (
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-white">
                   {activeSource} Keywords
                 </h2>
+                <button
+                  onClick={openAddModal}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                >
+                  + Add Keyword
+                </button>
               </div>
 
-              {/* Search and Add */}
-              <div className="mb-4 grid grid-cols-1 md:grid-cols-5 gap-3">
-                <div className="md:col-span-3">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search keywords..."
-                    className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
-                  />
-                </div>
-                <div className="flex md:col-span-2">
-                  <input
-                    ref={newKeywordInputRef}
-                    type="text"
-                    value={newKeyword}
-                    onChange={(e) => setNewKeyword(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && newKeyword.trim()) {
-                        handleAddKeyword();
-                      }
-                    }}
-                    placeholder="New keyword..."
-                    className="w-full flex-grow p-2 bg-gray-700 border border-gray-600 rounded-l text-white"
-                  />
-                  <button
-                    onClick={handleAddKeyword}
-                    disabled={!newKeyword.trim()}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-r disabled:opacity-50"
-                  >
-                    Add
-                  </button>
-                </div>
+              <div className="mb-4">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search keywords..."
+                  className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
+                />
               </div>
 
-              {/* Keywords List */}
               <div
-                className="bg-gray-700 rounded-lg max-h-[45vh] overflow-y-auto"
+                className="bg-gray-700 rounded-lg max-h-[50vh] overflow-y-auto"
                 ref={keywordsContainerRef}
               >
                 {filteredKeywords.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
                     {filteredKeywords.map(
-                      (item: KeywordItem, index: number) => {
-                        const originalIndex = configData.source[
-                          activeSource
-                        ].findIndex((k) => k === item);
+                      (item: KeywordItem) => {
+                        const originalIndex = configData.source[activeSource].findIndex(
+                            (k) => k === item || (k.keyword === item.keyword && k.source === item.source)
+                        );
+                        if (originalIndex === -1) {
+                             console.warn("Could not find original index for item:", item);
+                             return null;
+                        };
 
-                        // Determine border class based on isNew and isEdited flags
                         let borderClass = "";
                         if (item.isNew) {
                           borderClass = "border-2 border-green-500";
@@ -318,29 +342,26 @@ export default function AdminEditor() {
 
                         return (
                           <div
-                            key={index}
-                            className={`flex items-center bg-gray-800 p-2 rounded ${borderClass}`}
+                            key={`${activeSource}-${originalIndex}-${item.keyword}`}
+                            className={`relative group bg-gray-800 p-3 rounded shadow-md transition-shadow hover:shadow-lg ${borderClass}`}
                           >
-                            <input
-                              type="text"
-                              value={item.keyword}
-                              onChange={(e) =>
-                                handleKeywordChange(
-                                  activeSource,
-                                  originalIndex,
-                                  e.target.value
-                                )
-                              }
-                              className="flex-grow p-2 bg-gray-700 border border-gray-600 rounded mr-2 text-white"
-                            />
+                            <div onClick={() => openEditModal(originalIndex)} className="cursor-pointer min-h-[40px]">
+                                <h4 className="font-semibold text-white truncate mb-1" title={item.keyword}>{item.keyword}</h4>
+                                {isRedditKeywordItem(item) && (item.subreddits?.length ?? 0) > 0 && (
+                                  <p className="text-xs text-gray-400 truncate" title={item.subreddits?.join(", ")}>
+                                    Subs: {item.subreddits?.join(", ")}
+                                  </p>
+                                )}
+                            </div>
                             <button
-                              onClick={() =>
-                                handleRemoveKeyword(activeSource, originalIndex)
-                              }
-                              className="p-2 text-red-400 hover:text-red-300"
-                              aria-label="Remove keyword"
-                            >
-                              ✕
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveKeyword(activeSource, originalIndex);
+                                }}
+                                className="absolute top-1 right-1 p-1 text-red-400 hover:text-red-200 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-700 rounded-full leading-none flex items-center justify-center w-5 h-5"
+                                aria-label="Remove keyword"
+                              >
+                                <span className="text-xs -mt-px">✕</span>
                             </button>
                           </div>
                         );
@@ -348,10 +369,10 @@ export default function AdminEditor() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-400 italic p-4">
+                   <p className="text-gray-400 italic p-4 text-center">
                     {searchTerm
-                      ? "No matching keywords found"
-                      : "No keywords. Add your first keyword above."}
+                      ? "No matching keywords found."
+                      : "No keywords added for this source yet. Click '+ Add Keyword'."}
                   </p>
                 )}
               </div>
@@ -361,48 +382,51 @@ export default function AdminEditor() {
                 {searchTerm && ` (${filteredKeywords.length} matching)`}
               </div>
             </div>
+          ) : (
+             <div className="p-6 text-center text-gray-500">
+                 {sources.length > 0 ? "Select a source tab above." : "Add a source to get started."}
+             </div>
           )}
 
-          {/* Raw JSON View */}
           <div className="px-6 pb-6">
-            <details className="border border-gray-700 rounded">
-              <summary className="p-3 cursor-pointer bg-gray-800 font-medium">
-                View Raw JSON
-              </summary>
-              <pre className="p-3 bg-gray-800 overflow-x-auto text-sm text-gray-300 max-h-60 overflow-y-auto">
-                {JSON.stringify(configData, null, 2)}
-              </pre>
-            </details>
+            <pre className="p-3 bg-gray-800 overflow-x-auto text-sm text-gray-300 max-h-60 overflow-y-auto">
+                {configData ? JSON.stringify(configData, null, 2) : "Loading..."}
+            </pre>
           </div>
 
-          {/* Action Buttons */}
-          <div className="px-6 pb-6 flex space-x-4">
+          <div className="px-6 pb-6 flex space-x-4 items-center">
             <button
-              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 hover:bg-blue-700"
-              onClick={handleSave}
-              disabled={saving || !hasChanges}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-            <button
-              className="px-4 py-2 bg-gray-700 text-gray-200 rounded disabled:opacity-50 hover:bg-gray-600"
               onClick={handleRevert}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
               disabled={!hasChanges}
             >
               Revert Changes
             </button>
+            <button
+              onClick={handleSave}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+              disabled={!hasChanges || saving}
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
 
             {error && (
-              <div className="text-red-400 ml-4 flex items-center">{error}</div>
-            )}
-            {success && (
-              <div className="text-green-400 ml-4 flex items-center">
-                Changes saved successfully!
-              </div>
+              <div className="text-red-400 ml-4 text-sm">{error}</div>
             )}
           </div>
         </div>
       </div>
+
+       {currentSourceExists && activeSource && (
+         <EditKeywordModal
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+            item={itemToEdit}
+            source={activeSource}
+            onSave={handleSaveModal}
+            isNewItem={isAddingNewItem}
+          />
+       )}
     </main>
   );
 }
