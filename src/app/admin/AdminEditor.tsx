@@ -40,11 +40,15 @@ export default function AdminEditor() {
             if (parsedData.source) {
               Object.keys(parsedData.source).forEach((source) => {
                 parsedData.source[source] = parsedData.source[source].map(
-                  (item: Record<string, unknown>) => {
+                  (item: unknown) => {
                     if (source === "reddit") {
-                      return new RedditKeywordItem(item);
+                      return new RedditKeywordItem(
+                        item as Partial<RedditKeywordItem>
+                      );
                     }
-                    return new SteamKeywordItem(item);
+                    return new SteamKeywordItem(
+                      item as Partial<SteamKeywordItem>
+                    );
                   }
                 );
               });
@@ -159,7 +163,18 @@ export default function AdminEditor() {
 
   function handleRevert() {
     if (originalData) {
-      setConfigData(JSON.parse(JSON.stringify(originalData)));
+      // Deep clone and re-wrap as class instances
+      const cloned = JSON.parse(JSON.stringify(originalData));
+      if (cloned.source) {
+        Object.keys(cloned.source).forEach((source) => {
+          cloned.source[source] = cloned.source[source].map((item: unknown) =>
+            source === "reddit"
+              ? new RedditKeywordItem(item as Partial<RedditKeywordItem>)
+              : new SteamKeywordItem(item as Partial<SteamKeywordItem>)
+          );
+        });
+      }
+      setConfigData(cloned);
       dispatchStatus({ type: "RESET" });
       setSearchTerm("");
     }

@@ -1,17 +1,6 @@
 // src/app/admin/EditKeywordModal.tsx
 import { useState, useEffect } from "react";
-import {
-  KeywordItem,
-  RedditKeywordItem,
-  SteamKeywordItem,
-  isRedditKeywordItem,
-  RedditTimeFilter,
-  RedditSort,
-  SteamTimeFilter,
-  SteamSort,
-} from "./types";
-import { REDDIT_DEFAULTS, STEAM_DEFAULTS } from "./defaults";
-import { parseOptionalInt, getSubreddits } from "./utils";
+import { KeywordItem, RedditKeywordItem, SteamKeywordItem } from "./types";
 
 interface EditKeywordModalProps {
   isOpen: boolean;
@@ -28,118 +17,73 @@ export default function EditKeywordModal({
   source,
   onSave,
 }: EditKeywordModalProps) {
-  // --- State for form fields ---
-  const [form, setForm] = useState<{
-    keyword: string;
-    subreddits: string;
-    redditTimeFilter: RedditTimeFilter;
-    redditSort: RedditSort;
-    redditPostLimit: string | number;
-    redditTopCommentsLimit: string | number;
-    steamTimeFilter: SteamTimeFilter;
-    steamSort: SteamSort;
-    steamPostLimit: string | number;
-  }>({
-    keyword: "",
-    subreddits: "",
-    redditTimeFilter: REDDIT_DEFAULTS.time_filter,
-    redditSort: REDDIT_DEFAULTS.sort,
-    redditPostLimit: "",
-    redditTopCommentsLimit: "",
-    steamTimeFilter: STEAM_DEFAULTS.time_filter,
-    steamSort: STEAM_DEFAULTS.sort,
-    steamPostLimit: "",
-  });
+  // --- State for editing item instance ---
+  const [editingItem, setEditingItem] = useState<KeywordItem | null>(null);
 
   useEffect(() => {
+    if (!isOpen) {
+      setEditingItem(null);
+      return;
+    }
     if (item) {
-      setForm((prev) => ({
-        ...prev,
-        keyword: item.keyword || "",
-        subreddits: isRedditKeywordItem(item) ? (item.subreddits ?? []).join(", ") : "",
-        redditTimeFilter: isRedditKeywordItem(item) ? item.time_filter || REDDIT_DEFAULTS.time_filter : REDDIT_DEFAULTS.time_filter,
-        redditSort: isRedditKeywordItem(item) ? item.sort || REDDIT_DEFAULTS.sort : REDDIT_DEFAULTS.sort,
-        redditPostLimit: isRedditKeywordItem(item) && item.post_limit !== undefined ? item.post_limit : "",
-        redditTopCommentsLimit: isRedditKeywordItem(item) && item.top_comments_limit !== undefined ? item.top_comments_limit : "",
-        steamTimeFilter: !isRedditKeywordItem(item) ? item.time_filter || STEAM_DEFAULTS.time_filter : STEAM_DEFAULTS.time_filter,
-        steamSort: !isRedditKeywordItem(item) ? item.sort || STEAM_DEFAULTS.sort : STEAM_DEFAULTS.sort,
-        steamPostLimit: !isRedditKeywordItem(item) && item.post_limit !== undefined ? item.post_limit : "",
-      }));
+      // Clone the item for editing
+      setEditingItem(
+        item.source === "reddit"
+          ? new RedditKeywordItem({ ...item })
+          : new SteamKeywordItem({ ...item })
+      );
     } else {
-      setForm({
-        keyword: "",
-        subreddits: "",
-        redditTimeFilter: REDDIT_DEFAULTS.time_filter,
-        redditSort: REDDIT_DEFAULTS.sort,
-        redditPostLimit: "",
-        redditTopCommentsLimit: "",
-        steamTimeFilter: STEAM_DEFAULTS.time_filter,
-        steamSort: STEAM_DEFAULTS.sort,
-        steamPostLimit: "",
-      });
+      // New item
+      setEditingItem(
+        source === "reddit"
+          ? new RedditKeywordItem({ keyword: "" })
+          : new SteamKeywordItem({ keyword: "" })
+      );
     }
   }, [item, isOpen, source]);
 
-  const handleChange = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSaveClick = () => {
-    const currentKeyword = form.keyword.trim();
-    if (!currentKeyword) {
-      alert("Keyword cannot be empty.");
-      return;
-    }
-    let savedItem: KeywordItem;
-    if (source === "reddit") {
-      const subs = getSubreddits(form.subreddits);
-      const postLimit = parseOptionalInt(form.redditPostLimit);
-      const commentsLimit = parseOptionalInt(form.redditTopCommentsLimit);
-      if (item && isRedditKeywordItem(item)) {
-        // Update class instance
-        item.keyword = currentKeyword;
-        item.subreddits = subs;
-        item.time_filter = form.redditTimeFilter;
-        item.sort = form.redditSort;
-        item.post_limit = postLimit;
-        item.top_comments_limit = commentsLimit;
-        savedItem = item;
+  // --- Handlers for updating the editingItem instance ---
+  function handleFieldChange(field: string, value: string) {
+    setEditingItem((prev) => {
+      if (!prev) return prev;
+      if (prev.source === "reddit") {
+        const updated = new RedditKeywordItem({ ...prev });
+        if (field === "keyword") updated.keyword = value;
+        else if (field === "subreddits") {
+          updated.subreddits = value
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+        } else if (field === "redditTimeFilter") {
+          updated.time_filter = value as import("./types").RedditTimeFilter;
+        } else if (field === "redditSort") {
+          updated.sort = value as import("./types").RedditSort;
+        } else if (field === "redditPostLimit") {
+          updated.post_limit = value === "" ? undefined : parseInt(value, 10);
+        } else if (field === "redditTopCommentsLimit") {
+          updated.top_comments_limit =
+            value === "" ? undefined : parseInt(value, 10);
+        }
+        return updated;
       } else {
-        savedItem = new RedditKeywordItem({
-          keyword: currentKeyword,
-          subreddits: subs,
-          time_filter: form.redditTimeFilter,
-          sort: form.redditSort,
-          post_limit: postLimit,
-          top_comments_limit: commentsLimit,
-        });
+        const updated = new SteamKeywordItem({ ...prev });
+        if (field === "keyword") updated.keyword = value;
+        else if (field === "steamTimeFilter") {
+          updated.time_filter = value as import("./types").SteamTimeFilter;
+        } else if (field === "steamSort") {
+          updated.sort = value as import("./types").SteamSort;
+        } else if (field === "steamPostLimit") {
+          updated.post_limit = value === "" ? undefined : parseInt(value, 10);
+        }
+        return updated;
       }
-    } else {
-      const postLimit = parseOptionalInt(form.steamPostLimit);
-      if (item && !isRedditKeywordItem(item)) {
-        item.keyword = currentKeyword;
-        item.time_filter = form.steamTimeFilter;
-        item.sort = form.steamSort;
-        item.post_limit = postLimit;
-        savedItem = item;
-      } else {
-        savedItem = new SteamKeywordItem({
-          keyword: currentKeyword,
-          time_filter: form.steamTimeFilter,
-          sort: form.steamSort,
-          post_limit: postLimit,
-        });
-      }
-    }
-    onSave(savedItem);
-    onClose();
-  };
+    });
+  }
 
-  // Use item?.isNew() and item?.isEdited() for modal logic
-  const isNew = item ? (typeof item.isNew === "function" ? item.isNew() : false) : true;
-  const isEdited = item ? (typeof item.isEdited === "function" ? item.isEdited() : false) : false;
+  const isNew = editingItem?.isNew() ?? true;
+  const isEdited = editingItem?.isEdited() ?? false;
 
-  if (!isOpen) return null;
+  if (!isOpen || !editingItem) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
@@ -147,7 +91,6 @@ export default function EditKeywordModal({
         <h2 className="text-xl font-semibold mb-4">
           {isNew ? "Add" : "Edit"} {source} Keyword
         </h2>
-
         <div className="space-y-3 mb-4 max-h-[60vh] overflow-y-auto pr-2">
           <div>
             <label
@@ -159,15 +102,14 @@ export default function EditKeywordModal({
             <input
               id="keyword"
               type="text"
-              value={form.keyword}
-              onChange={(e) => handleChange("keyword", e.target.value)}
+              value={editingItem.keyword}
+              onChange={(e) => handleFieldChange("keyword", e.target.value)}
               placeholder="Enter keyword"
               className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
               required
             />
           </div>
-
-          {source === "reddit" && (
+          {editingItem.source === "reddit" && (
             <>
               <div>
                 <label
@@ -179,8 +121,10 @@ export default function EditKeywordModal({
                 <input
                   id="subreddits"
                   type="text"
-                  value={form.subreddits}
-                  onChange={(e) => handleChange("subreddits", e.target.value)}
+                  value={editingItem.subreddits?.join(", ") || ""}
+                  onChange={(e) =>
+                    handleFieldChange("subreddits", e.target.value)
+                  }
                   placeholder="e.g., gamedev, programming"
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 />
@@ -197,9 +141,9 @@ export default function EditKeywordModal({
                 </label>
                 <select
                   id="reddit-sort"
-                  value={form.redditSort}
+                  value={editingItem.sort || "top"}
                   onChange={(e) =>
-                    handleChange("redditSort", e.target.value)
+                    handleFieldChange("redditSort", e.target.value)
                   }
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 >
@@ -219,9 +163,9 @@ export default function EditKeywordModal({
                 </label>
                 <select
                   id="reddit-time"
-                  value={form.redditTimeFilter}
+                  value={editingItem.time_filter || "day"}
                   onChange={(e) =>
-                    handleChange("redditTimeFilter", e.target.value)
+                    handleFieldChange("redditTimeFilter", e.target.value)
                   }
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 >
@@ -244,8 +188,10 @@ export default function EditKeywordModal({
                   id="reddit-post-limit"
                   type="number"
                   min="0"
-                  value={form.redditPostLimit}
-                  onChange={(e) => handleChange("redditPostLimit", e.target.value)}
+                  value={editingItem.post_limit ?? ""}
+                  onChange={(e) =>
+                    handleFieldChange("redditPostLimit", e.target.value)
+                  }
                   placeholder="Default (6)"
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 />
@@ -264,8 +210,10 @@ export default function EditKeywordModal({
                   id="reddit-comments-limit"
                   type="number"
                   min="0"
-                  value={form.redditTopCommentsLimit}
-                  onChange={(e) => handleChange("redditTopCommentsLimit", e.target.value)}
+                  value={editingItem.top_comments_limit ?? ""}
+                  onChange={(e) =>
+                    handleFieldChange("redditTopCommentsLimit", e.target.value)
+                  }
                   placeholder="Default (2)"
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 />
@@ -275,8 +223,7 @@ export default function EditKeywordModal({
               </div>
             </>
           )}
-
-          {source === "steam" && (
+          {editingItem.source === "steam" && (
             <>
               <div>
                 <label
@@ -287,9 +234,9 @@ export default function EditKeywordModal({
                 </label>
                 <select
                   id="steam-time"
-                  value={form.steamTimeFilter}
+                  value={editingItem.time_filter || "day"}
                   onChange={(e) =>
-                    handleChange("steamTimeFilter", e.target.value)
+                    handleFieldChange("steamTimeFilter", e.target.value)
                   }
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 >
@@ -309,9 +256,9 @@ export default function EditKeywordModal({
                 </label>
                 <select
                   id="steam-sort"
-                  value={form.steamSort}
+                  value={editingItem.sort || "top"}
                   onChange={(e) =>
-                    handleChange("steamSort", e.target.value)
+                    handleFieldChange("steamSort", e.target.value)
                   }
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 >
@@ -331,8 +278,10 @@ export default function EditKeywordModal({
                   id="steam-post-limit"
                   type="number"
                   min="0"
-                  value={form.steamPostLimit}
-                  onChange={(e) => handleChange("steamPostLimit", e.target.value)}
+                  value={editingItem.post_limit ?? ""}
+                  onChange={(e) =>
+                    handleFieldChange("steamPostLimit", e.target.value)
+                  }
                   placeholder="Default (8)"
                   className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
                 />
@@ -343,7 +292,6 @@ export default function EditKeywordModal({
             </>
           )}
         </div>
-
         <div className="flex justify-end space-x-3 mt-5">
           <button
             onClick={onClose}
@@ -352,7 +300,12 @@ export default function EditKeywordModal({
             Cancel
           </button>
           <button
-            onClick={handleSaveClick}
+            onClick={() => {
+              if (editingItem) {
+                onSave(editingItem);
+                onClose();
+              }
+            }}
             className={`px-4 py-2 rounded ${
               !isNew && !isEdited
                 ? "bg-gray-500 text-gray-400 cursor-not-allowed"
