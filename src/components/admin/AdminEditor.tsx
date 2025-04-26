@@ -223,7 +223,6 @@ export default function AdminEditor() {
 
           <ConfigJsonDisplay
             cleanedDataForDisplay={cleanedDataForDisplay}
-            configData={configData}
           />
 
           <div className="px-6 pb-6 flex space-x-4 items-center">
