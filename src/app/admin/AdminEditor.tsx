@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useReducer, useEffect, useState, useRef } from "react";
 import EditKeywordModal from "./EditKeywordModal";
 import {
   KeywordItem,
@@ -7,108 +7,27 @@ import {
   SteamKeywordItem,
   ConfigData,
   isRedditKeywordItem,
+  ModalState,
 } from "./types";
-
-// Define the structure for the cleaned data (matching backend expectation)
-type CleanedKeywordItemBase = { keyword: string }; // Base required property
-type CleanedRedditItem = CleanedKeywordItemBase &
-  Omit<Partial<RedditKeywordItem>, "source" | "isNew" | "isEdited" | "keyword">;
-type CleanedSteamItem = CleanedKeywordItemBase &
-  Omit<Partial<SteamKeywordItem>, "source" | "isNew" | "isEdited" | "keyword">;
-type CleanedKeywordItem = CleanedRedditItem | CleanedSteamItem;
-
-type CleanedConfigForSave = {
-  [sourceName: string]: CleanedKeywordItem[];
-};
-
-// Helper function to clean config data for saving/display
-function getCleanedConfig(
-  config: ConfigData | null
-): CleanedConfigForSave | null {
-  if (!config || !config.source) return null;
-
-  const cleanedOutput: CleanedConfigForSave = {};
-
-  Object.keys(config.source).forEach((sourceKey) => {
-    const sourceItems = config.source[sourceKey];
-    cleanedOutput[sourceKey] = sourceItems
-      .map((item: KeywordItem) => {
-        // Create a mutable copy
-        const cleanItem: Partial<KeywordItem> = { ...item };
-        const itemSource = cleanItem.source; // Store source before deleting
-
-        // Delete properties not needed in the final output
-        delete cleanItem.isNew;
-        delete cleanItem.isEdited;
-        delete cleanItem.source;
-
-        if (itemSource === "reddit") {
-          const redditItem = cleanItem as Partial<RedditKeywordItem>; // Already missing source, isNew, isEdited
-          if (!redditItem.subreddits || redditItem.subreddits.length === 0)
-            delete redditItem.subreddits;
-          if (redditItem.sort === "top") delete redditItem.sort;
-          if (redditItem.time_filter === "day") delete redditItem.time_filter;
-          if (redditItem.post_limit === 6) delete redditItem.post_limit;
-          if (redditItem.top_comments_limit === 2)
-            delete redditItem.top_comments_limit;
-          if (redditItem.post_limit !== undefined && redditItem.post_limit <= 0)
-            delete redditItem.post_limit;
-          if (
-            redditItem.top_comments_limit !== undefined &&
-            redditItem.top_comments_limit <= 0
-          )
-            delete redditItem.top_comments_limit;
-        } else if (itemSource === "steam") {
-          const steamItem = cleanItem as Partial<SteamKeywordItem>; // Already missing source, isNew, isEdited
-          if (steamItem.sort === "top") delete steamItem.sort;
-          if (steamItem.time_filter === "day") delete steamItem.time_filter;
-          if (steamItem.post_limit === 8) delete steamItem.post_limit;
-          if (steamItem.post_limit !== undefined && steamItem.post_limit <= 0)
-            delete steamItem.post_limit;
-        } else {
-          console.error(
-            "Item found without valid source during cleaning:",
-            item
-          );
-          return null; // Skip this item
-        }
-
-        if (!cleanItem.keyword) {
-          console.error("Attempting to clean item without keyword:", item);
-          return null; // Skip this item
-        }
-
-        // Return the cleaned item
-        return cleanItem as CleanedKeywordItem; // Type assertion
-      })
-      .filter((item): item is CleanedKeywordItem => item !== null);
-
-    // Optional: Remove the source key if it has no valid items left after cleaning
-    if (cleanedOutput[sourceKey].length === 0) {
-      delete cleanedOutput[sourceKey];
-    }
-  });
-
-  // Return null if no sources remain after cleaning
-  return Object.keys(cleanedOutput).length > 0 ? cleanedOutput : null;
-}
+import { adminStatusReducer, getCleanedConfig } from "./utils";
 
 export default function AdminEditor() {
   const [configData, setConfigData] = useState<ConfigData | null>(null);
   const [originalData, setOriginalData] = useState<ConfigData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [, setSuccess] = useState(false);
+  const [status, dispatchStatus] = useReducer(adminStatusReducer, {
+    loading: true,
+    saving: false,
+    error: "",
+    success: false,
+  });
   const [activeSource, setActiveSource] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const keywordsContainerRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
-  const [isAddingNewItem, setIsAddingNewItem] = useState(false);
+
+  const [modalState, setModalState] = useState<ModalState>({ open: false });
 
   useEffect(() => {
-    setLoading(true);
+    dispatchStatus({ type: "LOADING" });
     fetch("/api/admin/config")
       .then((res) => res.json())
       .then((data) => {
@@ -118,32 +37,18 @@ export default function AdminEditor() {
               typeof data.data[0] === "string"
                 ? JSON.parse(data.data[0])
                 : data.data[0];
-
-            // For each item in the parsedData, add the isNew and isEdited flags
             if (parsedData.source) {
               Object.keys(parsedData.source).forEach((source) => {
                 parsedData.source[source] = parsedData.source[source].map(
-                  (item: { keyword: string; subreddits?: string[] }) => {
+                  (item: Record<string, unknown>) => {
                     if (source === "reddit") {
-                      return {
-                        keyword: item.keyword,
-                        subreddits: item.subreddits || [],
-                        source: "reddit" as const,
-                        isNew: false,
-                        isEdited: false,
-                      };
+                      return new RedditKeywordItem(item);
                     }
-                    return {
-                      keyword: item.keyword,
-                      source: "steam" as const,
-                      isNew: false,
-                      isEdited: false,
-                    };
+                    return new SteamKeywordItem(item);
                   }
                 );
               });
             }
-
             setConfigData(parsedData);
             setOriginalData(JSON.parse(JSON.stringify(parsedData)));
             if (
@@ -152,127 +57,110 @@ export default function AdminEditor() {
             ) {
               setActiveSource(Object.keys(parsedData.source)[0]);
             }
+            dispatchStatus({ type: "LOADED" });
           } catch {
-            setError("Invalid JSON format");
+            dispatchStatus({ type: "ERROR", error: "Invalid JSON format" });
           }
         } else {
-          setError(data.error || "Failed to load config");
+          dispatchStatus({
+            type: "ERROR",
+            error: data.error || "Failed to load config",
+          });
         }
-        setLoading(false);
       })
       .catch(() => {
-        setError("Failed to load config");
-        setLoading(false);
+        dispatchStatus({ type: "ERROR", error: "Failed to load config" });
       });
   }, []);
 
   async function handleSave() {
-    setSaving(true);
-    setError("");
-    setSuccess(false);
+    dispatchStatus({ type: "SAVING" });
     try {
       const dataToSave = getCleanedConfig(configData);
-
       if (!dataToSave) {
-        // Adjust error message based on whether there was config data initially
         const hasAnyKeywordsInitially =
           configData?.source &&
           Object.values(configData.source).some((arr) => arr.length > 0);
         if (!hasAnyKeywordsInitially) {
-          setError("No keywords configured to save.");
+          dispatchStatus({
+            type: "ERROR",
+            error: "No keywords configured to save.",
+          });
         } else {
-          // This case might happen if all items were invalid or filtered out
-          setError("No valid data remaining after cleaning defaults.");
+          dispatchStatus({
+            type: "ERROR",
+            error: "No valid data remaining after cleaning defaults.",
+          });
         }
-        setSaving(false);
         return;
       }
-
-      // The structure of dataToSave is now { sourceName: [items...] }
-      // We need to wrap it in { source: ... } if the API expects that exact structure
       const payload = { source: dataToSave };
-
       const res = await fetch("/api/admin/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ json: JSON.stringify(payload) }), // Send the wrapped payload
+        body: JSON.stringify({ json: JSON.stringify(payload) }),
       });
-
       if (res.ok) {
-        setSuccess(true);
-        // After successful save, update the internal state to match the saved structure,
-        // but re-hydrated with necessary internal fields (source, isNew=false, isEdited=false).
+        dispatchStatus({ type: "SAVED" });
         if (dataToSave) {
-          // dataToSave has the structure { sourceName: [cleanedItems...] }
           const newInternalState: ConfigData = { source: {} };
-
           Object.keys(dataToSave).forEach((savedSourceKey) => {
             newInternalState.source[savedSourceKey] = dataToSave[
               savedSourceKey
             ].map((cleanedItem) => {
-              // Find the original item to potentially merge non-saved but needed UI state? No, simpler is better.
-              // Just reconstruct the internal item from the cleaned data.
               return {
-                ...cleanedItem, // Spread the properties that were saved
-                source: savedSourceKey as "reddit" | "steam", // Add source back
-                isNew: false,
-                isEdited: false,
-                // Ensure required fields for specific types are present, even if empty/default
+                ...cleanedItem,
+                source: savedSourceKey as "reddit" | "steam",
                 ...(savedSourceKey === "reddit" &&
                   !(cleanedItem as Partial<RedditKeywordItem>).subreddits && {
                     subreddits: [],
                   }),
-              } as KeywordItem; // Assert as the full KeywordItem for internal state
+              } as KeywordItem;
             });
           });
-
-          // Add back any sources from the original config that might have been empty
-          // and thus not included in dataToSave, but should still exist in the UI state.
           if (configData && configData.source) {
             Object.keys(configData.source).forEach((originalSourceKey) => {
               if (!newInternalState.source[originalSourceKey]) {
-                // Check if it existed before saving but is now gone
                 if (
                   dataToSave &&
                   !dataToSave[originalSourceKey] &&
                   configData.source[originalSourceKey].length > 0
                 ) {
-                  // This implies all items were invalid/filtered. Keep the source key but empty.
                   newInternalState.source[originalSourceKey] = [];
                 } else if (
                   !dataToSave &&
                   configData.source[originalSourceKey]
                 ) {
-                  // Case where dataToSave itself was null (e.g. no initial keywords)
                   newInternalState.source[originalSourceKey] = [];
                 } else if (!newInternalState.source[originalSourceKey]) {
-                  // Source was added but never had valid items/saved
                   newInternalState.source[originalSourceKey] = [];
                 }
               }
             });
           }
-
           setConfigData(newInternalState);
-          setOriginalData(JSON.parse(JSON.stringify(newInternalState))); // Update original data to match saved state
+          setOriginalData(JSON.parse(JSON.stringify(newInternalState)));
         }
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to save");
+        dispatchStatus({
+          type: "ERROR",
+          error: data.error || "Failed to save",
+        });
       }
     } catch (err) {
       console.error("Save error:", err);
-      setError("Failed to save config. Check console for details.");
-    } finally {
-      setSaving(false);
+      dispatchStatus({
+        type: "ERROR",
+        error: "Failed to save config. Check console for details.",
+      });
     }
   }
 
   function handleRevert() {
     if (originalData) {
       setConfigData(JSON.parse(JSON.stringify(originalData)));
-      setError("");
-      setSuccess(false);
+      dispatchStatus({ type: "RESET" });
       setSearchTerm("");
     }
   }
@@ -307,87 +195,32 @@ export default function AdminEditor() {
 
   function openAddModal() {
     if (!activeSource) return;
-    setIsAddingNewItem(true);
-    setCurrentItemIndex(null);
-    setIsModalOpen(true);
+    setModalState({ open: true, index: null, isNew: true });
   }
 
   function openEditModal(index: number) {
     if (!activeSource || !configData?.source[activeSource]?.[index]) return;
-    setIsAddingNewItem(false);
-    setCurrentItemIndex(index);
-    setIsModalOpen(true);
+    setModalState({ open: true, index, isNew: false });
   }
 
   function handleCloseModal() {
-    setIsModalOpen(false);
-    setCurrentItemIndex(null);
-    setIsAddingNewItem(false);
+    setModalState({ open: false });
   }
 
   function handleSaveModal(savedItemFromModal: KeywordItem) {
-    if (!configData || !activeSource || !originalData || !originalData.source) return;
-
-    const updatedData = JSON.parse(JSON.stringify(configData)); // Deep copy
-
-    // Helper to compare two items for edit status determination
-    // This compares against the *original* data, ignoring isNew/isEdited flags themselves
-    const itemsDiffer = (itemA: KeywordItem, itemB: KeywordItem): boolean => {
-      const cleanA = { ...itemA };
-      const cleanB = { ...itemB };
-      delete cleanA.isNew;
-      delete cleanA.isEdited;
-      delete cleanB.isNew;
-      delete cleanB.isEdited;
-
-      // Handle potential undefined vs empty array for subreddits
-      if (isRedditKeywordItem(cleanA) && isRedditKeywordItem(cleanB)) {
-          cleanA.subreddits = cleanA.subreddits ?? [];
-          cleanB.subreddits = cleanB.subreddits ?? [];
-          // Sort subreddits for consistent comparison
-          cleanA.subreddits.sort();
-          cleanB.subreddits.sort();
-      }
-
-      return JSON.stringify(cleanA) !== JSON.stringify(cleanB);
-    };
-
-    if (isAddingNewItem) {
-        // New items are always marked isNew: true, isEdited: false initially
-        updatedData.source[activeSource].unshift({
-            ...savedItemFromModal,
-            isNew: true,
-            isEdited: false, // New items aren't considered edited yet
-        });
-    } else if (currentItemIndex !== null) {
-        const originalItemForComparison = originalData.source[activeSource]?.[currentItemIndex];
-
-        if (!originalItemForComparison) {
-            console.error("Original item not found for comparison during edit save");
-            // Fallback: treat it like a new item or just use the incoming flags? Let's log and proceed cautiously.
-            // For now, we'll trust the modal's isNew, but mark isEdited false
-            updatedData.source[activeSource][currentItemIndex] = {
-                ...savedItemFromModal,
-                isNew: savedItemFromModal.isNew, // Trust modal if original is missing
-                isEdited: false, // Can't compare, so mark as not edited
-            };
-        } else {
-            // Compare the item returned from the modal with the original version
-            const hasChangedFromOriginal = itemsDiffer(originalItemForComparison, savedItemFromModal);
-
-            updatedData.source[activeSource][currentItemIndex] = {
-                ...savedItemFromModal,
-                isNew: originalItemForComparison.isNew, // Preserve original isNew status
-                isEdited: !originalItemForComparison.isNew && hasChangedFromOriginal, // Edited if not new AND differs from original
-            };
-        }
+    if (!configData || !activeSource) return;
+    const updatedData = { ...configData };
+    if (modalState.open && modalState.isNew) {
+      updatedData.source[activeSource].unshift(savedItemFromModal);
+    } else if (modalState.open && modalState.index !== null) {
+      updatedData.source[activeSource][modalState.index] = savedItemFromModal;
     }
-
     setConfigData(updatedData);
     handleCloseModal();
   }
 
-  if (loading) return <div className="p-4 text-white">Loading config...</div>;
+  if (status.loading)
+    return <div className="p-4 text-white">Loading config...</div>;
 
   const currentSourceExists =
     activeSource && configData?.source && activeSource in configData.source;
@@ -404,6 +237,9 @@ export default function AdminEditor() {
             item.keyword.toLowerCase().includes(searchTerm.toLowerCase())
         )
       : [];
+
+  const isModalOpen = modalState.open;
+  const currentItemIndex = modalState.open ? modalState.index : null;
 
   const itemToEdit =
     currentSourceExists && activeSource && currentItemIndex !== null
@@ -493,9 +329,17 @@ export default function AdminEditor() {
                       }
 
                       let borderClass = "";
-                      if (item.isNew) {
+                      if (
+                        item.isNew &&
+                        typeof item.isNew === "function" &&
+                        item.isNew()
+                      ) {
                         borderClass = "border-2 border-green-500";
-                      } else if (item.isEdited) {
+                      } else if (
+                        item.isEdited &&
+                        typeof item.isEdited === "function" &&
+                        item.isEdited()
+                      ) {
                         borderClass = "border-2 border-yellow-500";
                       }
 
@@ -582,12 +426,13 @@ export default function AdminEditor() {
             <button
               onClick={handleSave}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-              disabled={!hasChanges || saving}
+              disabled={!hasChanges || status.saving}
             >
-              {saving ? "Saving..." : "Save Changes"}
+              {status.saving ? "Saving..." : "Save Changes"}
             </button>
-
-            {error && <div className="text-red-400 ml-4 text-sm">{error}</div>}
+            {status.error && (
+              <div className="text-red-400 ml-4 text-sm">{status.error}</div>
+            )}
           </div>
         </div>
       </div>
@@ -599,7 +444,6 @@ export default function AdminEditor() {
           item={itemToEdit}
           source={activeSource}
           onSave={handleSaveModal}
-          isNewItem={isAddingNewItem}
         />
       )}
     </main>
