@@ -8,11 +8,6 @@ import {
 } from "./types";
 import { REDDIT_DEFAULTS, STEAM_DEFAULTS } from "./defaults";
 
-export function parseOptionalInt(value: number | string): number | undefined {
-  const num = parseInt(String(value), 10);
-  return !isNaN(num) && num > 0 ? num : undefined;
-}
-
 export function getSubreddits(subreddits: string): string[] | undefined {
   const list = subreddits
     .split(",")
@@ -85,14 +80,12 @@ export function adminStatusReducer(
 
 // Helper function to clean config data for saving/display
 export function getCleanedConfig(
-  config: ConfigData | null
-): Record<string, Partial<KeywordItem>[]> | null {
-  if (!config || !config.source) return null;
-
+  config: ConfigData
+): Partial<ConfigData> {
   const cleanedOutput: Record<string, Partial<KeywordItem>[]> = {};
 
   Object.keys(config.source).forEach((sourceKey) => {
-    const sourceItems = config.source[sourceKey];
+    const sourceItems = config.source[sourceKey as keyof typeof config.source];
     cleanedOutput[sourceKey] = sourceItems
       .map((item: KeywordItem) => {
         if (!item.keyword) return null;
@@ -106,5 +99,5 @@ export function getCleanedConfig(
     }
   });
 
-  return Object.keys(cleanedOutput).length > 0 ? cleanedOutput : null;
+  return cleanedOutput;
 }

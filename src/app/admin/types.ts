@@ -1,5 +1,7 @@
 // src/app/admin/types.ts
 
+import { cleanRedditItem, cleanSteamItem } from "./utils";
+
 // Enums for sort and time_filter fields
 export type RedditSort = "relevance" | "hot" | "top" | "new" | "comments";
 export type RedditTimeFilter =
@@ -22,45 +24,17 @@ export class RedditKeywordItem {
   public post_limit?: number;
   public sort?: RedditSort;
 
-  private _original: Partial<RedditKeywordItem>;
-
-  constructor(
-    data: Partial<RedditKeywordItem>,
-    original?: Partial<RedditKeywordItem>
-  ) {
+  constructor(data: Partial<RedditKeywordItem>) {
     this.keyword = data.keyword || "";
     this.subreddits = data.subreddits;
     this.top_comments_limit = data.top_comments_limit;
     this.time_filter = data.time_filter;
     this.post_limit = data.post_limit;
     this.sort = data.sort;
-    this._original = original ? { ...original } : { ...data };
-  }
-
-  isNew(): boolean {
-    // If no original, it's new
-    return !this._original || !this._original.keyword;
-  }
-
-  isEdited(): boolean {
-    // Compare current state to original
-    return (
-      JSON.stringify(this.cleanForSave()) !==
-      JSON.stringify(new RedditKeywordItem(this._original).cleanForSave())
-    );
   }
 
   cleanForSave(): Partial<RedditKeywordItem> {
-    // Remove undefined, null, or empty/blank fields
-    const cleaned: Partial<RedditKeywordItem> = { keyword: this.keyword };
-    if (this.subreddits && this.subreddits.length > 0)
-      cleaned.subreddits = this.subreddits;
-    if (this.top_comments_limit !== undefined)
-      cleaned.top_comments_limit = this.top_comments_limit;
-    if (this.time_filter !== undefined) cleaned.time_filter = this.time_filter;
-    if (this.post_limit !== undefined) cleaned.post_limit = this.post_limit;
-    if (this.sort !== undefined) cleaned.sort = this.sort;
-    return cleaned;
+    return cleanRedditItem(this);
   }
 }
 
@@ -72,36 +46,15 @@ export class SteamKeywordItem {
   public sort?: SteamSort;
   public post_limit?: number;
 
-  private _original: Partial<SteamKeywordItem>;
-
-  constructor(
-    data: Partial<SteamKeywordItem>,
-    original?: Partial<SteamKeywordItem>
-  ) {
+  constructor(data: Partial<SteamKeywordItem>) {
     this.keyword = data.keyword || "";
     this.time_filter = data.time_filter;
     this.sort = data.sort;
     this.post_limit = data.post_limit;
-    this._original = original ? { ...original } : { ...data };
-  }
-
-  isNew(): boolean {
-    return !this._original || !this._original.keyword;
-  }
-
-  isEdited(): boolean {
-    return (
-      JSON.stringify(this.cleanForSave()) !==
-      JSON.stringify(new SteamKeywordItem(this._original).cleanForSave())
-    );
   }
 
   cleanForSave(): Partial<SteamKeywordItem> {
-    const cleaned: Partial<SteamKeywordItem> = { keyword: this.keyword };
-    if (this.time_filter !== undefined) cleaned.time_filter = this.time_filter;
-    if (this.sort !== undefined) cleaned.sort = this.sort;
-    if (this.post_limit !== undefined) cleaned.post_limit = this.post_limit;
-    return cleaned;
+    return cleanSteamItem(this);
   }
 }
 
@@ -132,9 +85,19 @@ export type AdminStatusAction =
 
 export type ModalState =
   | { open: false }
-  | { open: true; index: number | null; isNew: boolean };
+  | { open: true; index: number | null; item: KeywordItem | null };
 
 // Use Record for config source
-export interface ConfigData {
-  source: Record<string, KeywordItem[]>;
+export class ConfigData {
+  source: {
+    reddit: RedditKeywordItem[];
+    steam: SteamKeywordItem[];
+  };
+
+  constructor(config: Partial<ConfigData>) {
+    this.source = {
+      reddit: config.source?.reddit || [],
+      steam: config.source?.steam || [],
+    };
+  }
 }

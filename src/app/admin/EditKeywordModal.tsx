@@ -1,48 +1,51 @@
 // src/app/admin/EditKeywordModal.tsx
 import { useState, useEffect } from "react";
-import { KeywordItem, RedditKeywordItem, SteamKeywordItem } from "./types";
+import { KeywordItem, ModalState, RedditKeywordItem, SteamKeywordItem } from "./types";
 
 interface EditKeywordModalProps {
-  isOpen: boolean;
   onClose: () => void;
-  item: KeywordItem | null; // Accepts class instance
-  source: string; // 'reddit' or 'steam'
-  onSave: (item: KeywordItem) => void;
+  modalState: ModalState;
+  source: string;
+  onSave: (item: RedditKeywordItem | SteamKeywordItem) => void;
 }
 
 export default function EditKeywordModal({
-  isOpen,
   onClose,
-  item,
+  modalState,
   source,
   onSave,
 }: EditKeywordModalProps) {
-  // --- State for editing item instance ---
+  // --- State for editing and original item instance ---
   const [editingItem, setEditingItem] = useState<KeywordItem | null>(null);
+  const [originalItem, setOriginalItem] = useState<KeywordItem | null>(null);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!modalState.open) {
       setEditingItem(null);
+      setOriginalItem(null);
       return;
     }
-    if (item) {
-      // Clone the item for editing
+    if (modalState.item) {
       setEditingItem(
-        item.source === "reddit"
-          ? new RedditKeywordItem({ ...item })
-          : new SteamKeywordItem({ ...item })
+        modalState.item.source === "reddit"
+          ? new RedditKeywordItem({ ...modalState.item })
+          : new SteamKeywordItem({ ...modalState.item })
+      );
+      setOriginalItem(
+        modalState.item.source === "reddit"
+          ? new RedditKeywordItem({ ...modalState.item })
+          : new SteamKeywordItem({ ...modalState.item })
       );
     } else {
-      // New item
       setEditingItem(
         source === "reddit"
           ? new RedditKeywordItem({ keyword: "" })
           : new SteamKeywordItem({ keyword: "" })
       );
+      setOriginalItem(null);
     }
-  }, [item, isOpen, source]);
+  }, [modalState, source]);
 
-  // --- Handlers for updating the editingItem instance ---
   function handleFieldChange(field: string, value: string) {
     setEditingItem((prev) => {
       if (!prev) return prev;
@@ -67,7 +70,7 @@ export default function EditKeywordModal({
         return updated;
       } else {
         const updated = new SteamKeywordItem({ ...prev });
-        if (field === "keyword") updated.keyword = value;
+        if (field === "keyword") updated.keyword = value.trim();
         else if (field === "steamTimeFilter") {
           updated.time_filter = value as import("./types").SteamTimeFilter;
         } else if (field === "steamSort") {
@@ -80,10 +83,14 @@ export default function EditKeywordModal({
     });
   }
 
-  const isNew = editingItem?.isNew() ?? true;
-  const isEdited = editingItem?.isEdited() ?? false;
+  // Deep compare for isEdited
+  function isEdited() {
+    if (!originalItem || !editingItem) return false;
+    return JSON.stringify(editingItem) !== JSON.stringify(originalItem);
+  }
+  const isNew = originalItem === null;
 
-  if (!isOpen || !editingItem) return null;
+  if (!modalState.open || !editingItem) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
@@ -307,11 +314,11 @@ export default function EditKeywordModal({
               }
             }}
             className={`px-4 py-2 rounded ${
-              !isNew && !isEdited
+              !isNew && !isEdited()
                 ? "bg-gray-500 text-gray-400 cursor-not-allowed"
                 : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
-            disabled={!isNew && !isEdited}
+            disabled={!isNew && !isEdited()}
           >
             {isNew ? "Add Keyword" : "Save Changes"}
           </button>
