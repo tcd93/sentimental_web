@@ -11,11 +11,10 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Loader2 } from 'lucide-react';
-import { TimeseriesDataPoint } from "@/lib/types/sentiment";
-import { ListState } from '@/lib/reducers/listReducer';
+import { ChartDataState, TimeSeriesPoint } from "../lib/dataProcessing";
 
 interface SentimentChartProps {
-  chartState: ListState<TimeseriesDataPoint>;
+  chartState: ChartDataState;
   keyword: string;
   drilldownSentiment: string | null;
   chartHeight?: number;
@@ -119,7 +118,7 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
     : [drilldownSentiment.toUpperCase()];
 
   // Helper function to get dataKey from sentiment name
-  const getDataKey = (sentiment: string): keyof TimeseriesDataPoint | null => {
+  const getDataKey = (sentiment: string): keyof Omit<TimeSeriesPoint, 'day' | 'count'> | null => {
     switch (sentiment.toUpperCase()) {
       case "POSITIVE":
         return "avg_pos";

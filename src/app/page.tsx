@@ -1,18 +1,33 @@
 "use client"; // Add this directive for client-side fetching and state
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import SentimentTimeSeriesChart from "@/components/SentimentTimeSeriesChart";
 import { KeywordSelector } from "@/components/KeywordSelector";
 import SentimentDistributionChart from "@/components/SentimentDistributionChart";
 import SentimentList from "@/components/SentimentList";
 import DateRangeControls from "@/components/DateRangeControls";
-import { useSentimentScoreData } from "@/lib/hooks/useSentimentScoreData";
-import { useKeywordData } from "@/lib/hooks/useKeywordData";
-import { useChartData } from "@/lib/hooks/useChartData";
+import { useDailySentimentData } from "@/lib/hooks/useDailySentimentData";
 import { handleDatePreset, getListTitle } from "@/lib/utils";
+// Import necessary types and placeholder calculation functions
+// import { DailySentimentData } from "@/lib/types/sentiment"; // Removed unused import
+import {
+    calculateKeywordsList,
+    calculateTimeSeriesData,
+    calculateDistributionData,
+    calculatePeriodAverages,
+    calculatePositiveList,
+    calculateNegativeList,
+    calculateControversialList,
+    // Add placeholder types for calculated data if not defined elsewhere
+    type KeywordDataState,
+    type ChartDataState,
+    type DistributionDataState,
+    type PeriodAveragesState,
+    type SentimentListDataState,
+    type ControversyListDataState
+} from "../lib/dataProcessing"; // Adjusted import path
 import { Carousel } from "react-responsive-carousel";
 import "react-responsive-carousel/lib/styles/carousel.min.css";
-import { useSentimentControversyData } from "@/lib/hooks/useSentimentControversyData";
 import Link from "next/link";
 
 export default function Home() {
@@ -32,38 +47,77 @@ export default function Home() {
     const date = new Date();
     return date.toISOString().split("T")[0];
   });
-
-  // Use custom hooks for data fetching and state
   const [activeList, setActiveList] = useState<
     "positive" | "negative" | "controversial"
   >("controversial");
-  const positiveListState = useSentimentScoreData("positive", startDate, endDate);
-  const negativeListState = useSentimentScoreData("negative", startDate, endDate);
-  const controversialListState = useSentimentControversyData(startDate, endDate);
 
-  const { keywordsList } = useKeywordData();
-  const { chartState, distributionState, periodAveragesState } = useChartData(
-    selectedKeyword,
-    startDate,
-    endDate
-  );
+  // Fetch central daily data
+  const dailyDataState = useDailySentimentData(startDate, endDate);
 
-  // Effect to set default keyword AFTER positive list loads (if none selected yet)
+  // --- Memoized Data Processing --- 
+  // Calculate derived data states from dailyDataState using useMemo
+
+  const keywordsListState: KeywordDataState = useMemo(() => {
+    return calculateKeywordsList(dailyDataState);
+  }, [dailyDataState]);
+
+  const chartState: ChartDataState = useMemo(() => {
+    return calculateTimeSeriesData(dailyDataState, selectedKeyword);
+  }, [dailyDataState, selectedKeyword]);
+
+  const distributionState: DistributionDataState = useMemo(() => {
+    return calculateDistributionData(dailyDataState, selectedKeyword);
+  }, [dailyDataState, selectedKeyword]);
+
+  const periodAveragesState: PeriodAveragesState = useMemo(() => {
+    return calculatePeriodAverages(dailyDataState, selectedKeyword);
+  }, [dailyDataState, selectedKeyword]);
+
+  const positiveListState: SentimentListDataState = useMemo(() => {
+    return calculatePositiveList(dailyDataState);
+  }, [dailyDataState]);
+
+  const negativeListState: SentimentListDataState = useMemo(() => {
+    return calculateNegativeList(dailyDataState);
+  }, [dailyDataState]);
+
+  const controversialListState: ControversyListDataState = useMemo(() => {
+    return calculateControversialList(dailyDataState);
+  }, [dailyDataState]);
+
+  // Effect to set default keyword (adjust logic based on new state structure)
   useEffect(() => {
     if (
       activeList === "controversial" &&
       !controversialListState.loading &&
       controversialListState.data.length > 0 &&
-      !selectedKeyword &&
-      !keywordsList.loading
+      !selectedKeyword && // Only set if no keyword is selected
+      !keywordsListState.loading &&
+      keywordsListState.data.length > 0 // Check if keywords are available
     ) {
-      if (keywordsList.data.includes(controversialListState.data[0].keyword)) {
-        setSelectedKeyword(controversialListState.data[0].keyword);
+      // Check if the top controversial keyword exists in the list of all keywords
+      const topControversialKeyword = controversialListState.data[0].keyword;
+      if (keywordsListState.data.includes(topControversialKeyword)) {
+        setSelectedKeyword(topControversialKeyword);
       } else {
-        console.warn("Top controversial game not found in distinct keywords list.");
+        // Fallback: select the first keyword from the general list if top controversial isn't found
+        // This might happen if filtering removes the top controversial keyword
+        if (keywordsListState.data.length > 0) {
+          setSelectedKeyword(keywordsListState.data[0]);
+          console.warn(`Top controversial game '${topControversialKeyword}' not found in available keywords list. Selecting first available keyword.`);
+        } else {
+          console.warn("No keywords available to select as default.");
+        }
       }
     }
-  }, [activeList, controversialListState, selectedKeyword, keywordsList]);
+    // Reset keyword if it's no longer in the list (e.g., due to date change)
+    else if (selectedKeyword && !keywordsListState.loading && !keywordsListState.data.includes(selectedKeyword)) {
+      console.log(`Selected keyword '${selectedKeyword}' no longer in list. Resetting selection.`);
+      setSelectedKeyword(null);
+      // Optionally, set a new default here if desired
+    }
+
+  }, [activeList, controversialListState, keywordsListState, selectedKeyword]);
 
   return (
     <main className="w-full min-h-screen flex flex-col gap-y-6 items-center justify-start px-2 sm:px-4 md:px-6 lg:px-12 bg-gray-900 text-white">
@@ -80,7 +134,7 @@ export default function Home() {
       {/* Controls Section: Keyword Selector and Date Range */}
       <div className="w-full max-w-full md:max-w-screen-lg flex flex-col md:flex-row justify-center items-center gap-4 flex-wrap">
         <KeywordSelector
-          keywordsState={keywordsList}
+          keywordsState={keywordsListState}
           selectedKeyword={selectedKeyword}
           onKeywordSelect={setSelectedKeyword}
         />
@@ -131,7 +185,7 @@ export default function Home() {
                 ? 1
                 : activeList === "negative"
                 ? 2
-                : 3
+                : 0 // Default to controversial
             }
             onChange={(idx) =>
               setActiveList(
