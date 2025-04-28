@@ -43,7 +43,7 @@ const parseAthenaResults = (
           obj[key] = value !== undefined ? Number(value) : null;
           break;
         case "type":
-          obj[key] = value as "POSITIVE" | "NEGATIVE";
+          obj[key] = value as "POSITIVE_DOMINANT" | "NEGATIVE_DOMINANT" | "CHAOTIC";
           break;
       }
       return obj;
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
 
   // Athena SQL for controversy calculation
   const query = `
-      WITH daily_avg AS (
+      WITH daily_sentiment AS (
         SELECT
             keyword,
             cast(created_at AS date) AS sentiment_date,
@@ -102,32 +102,36 @@ export async function GET(request: Request) {
         FROM "${ATHENA_DB}"."${ATHENA_TABLE}"
         WHERE cast(created_at AS date) BETWEEN date('${startDate}') AND date('${endDate}')
         GROUP BY keyword, cast(created_at AS date)
-    ), volatility AS (
+    ), diagnosis AS (
         SELECT
             keyword,
-            stddev_samp(avg_pos) AS pos_volatility,
-            stddev_samp(avg_neg) AS neg_volatility,
-            sum(daily_count) AS total_count
-        FROM daily_avg
+            SUM(CASE WHEN avg_neg - avg_pos > 0.1 THEN 1 ELSE 0 END) AS neg_dominant_days,
+            SUM(CASE WHEN avg_pos - avg_neg > 0.1 THEN 1 ELSE 0 END) AS pos_dominant_days,
+            SUM(CASE WHEN abs(avg_pos - avg_neg) <= 0.1 THEN 1 ELSE 0 END) AS close_battle_days,
+            SUM(daily_count) AS total_count,
+            COUNT(*) AS active_days
+        FROM daily_sentiment
         GROUP BY keyword
     ), ranked AS (
         SELECT
             keyword,
             total_count as count,
-            CASE
-                WHEN pos_volatility >= neg_volatility THEN pos_volatility
-                ELSE neg_volatility
-            END AS score,
-            CASE
-                WHEN pos_volatility >= neg_volatility THEN 'POSITIVE'
-                ELSE 'NEGATIVE'
-            END AS type
-        FROM volatility
+            --active_days,
+            CASE WHEN neg_dominant_days > pos_dominant_days THEN 'NEGATIVE_DOMINANT' 
+                 WHEN pos_dominant_days > neg_dominant_days THEN 'POSITIVE_DOMINANT'
+                 ELSE 'CHAOTIC' END as type,
+            -- chaos score formula (weighted close battles score / weighted sum)
+            (CAST(close_battle_days AS DOUBLE) / active_days) * 0.45 * 100 / 
+            ((CAST(neg_dominant_days AS DOUBLE) / active_days) * 0.275 
+              + (CAST(pos_dominant_days AS DOUBLE) / active_days) * 0.275 
+              + (CAST(close_battle_days AS DOUBLE) / active_days) * 0.45)
+            AS score
+        FROM diagnosis
         WHERE total_count > 20
     )
     SELECT *
     FROM ranked
-    ORDER BY score DESC
+    ORDER BY score DESC, count desc
     LIMIT ${limit};
     `;
 

@@ -25,8 +25,8 @@ export type SentimentSummary = z.infer<typeof SentimentSummarySchema>;
 export const SentimentControversySchema = z.object({
   keyword: z.string(),
   count: z.number(),
-  score: z.number().nullable().describe("Controversy score based on stddev_samp"),
-  type: z.enum(["POSITIVE", "NEGATIVE"]).nullable().describe("Dominant type of sentiment change"),
+  score: z.number().nullable(),
+  type: z.enum(["POSITIVE_DOMINANT", "NEGATIVE_DOMINANT", "CHAOTIC"]).nullable().describe("Dominant type of sentiment change"),
 });
 export type SentimentControversy = z.infer<typeof SentimentControversySchema>;
 
