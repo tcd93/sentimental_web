@@ -11,20 +11,20 @@ import { handleDatePreset, getListTitle } from "@/lib/utils";
 // Import necessary types and placeholder calculation functions
 // import { DailySentimentData } from "@/lib/types/sentiment"; // Removed unused import
 import {
-    calculateKeywordsList,
-    calculateTimeSeriesData,
-    calculateDistributionData,
-    calculatePeriodAverages,
-    calculatePositiveList,
-    calculateNegativeList,
-    calculateControversialList,
-    // Add placeholder types for calculated data if not defined elsewhere
-    type KeywordDataState,
-    type ChartDataState,
-    type DistributionDataState,
-    type PeriodAveragesState,
-    type SentimentListDataState,
-    type ControversyListDataState
+  calculateKeywordsList,
+  calculateTimeSeriesData,
+  calculateDistributionData,
+  calculatePeriodAverages,
+  calculatePositiveList,
+  calculateNegativeList,
+  calculateControversialList,
+  // Add placeholder types for calculated data if not defined elsewhere
+  type KeywordDataState,
+  type ChartDataState,
+  type DistributionDataState,
+  type PeriodAveragesState,
+  type SentimentListDataState,
+  type ControversyListDataState,
 } from "../lib/dataProcessing"; // Adjusted import path
 import { Carousel } from "react-responsive-carousel";
 import "react-responsive-carousel/lib/styles/carousel.min.css";
@@ -54,7 +54,7 @@ export default function Home() {
   // Fetch central daily data
   const dailyDataState = useDailySentimentData(startDate, endDate);
 
-  // --- Memoized Data Processing --- 
+  // --- Memoized Data Processing ---
   // Calculate derived data states from dailyDataState using useMemo
 
   const keywordsListState: KeywordDataState = useMemo(() => {
@@ -85,7 +85,6 @@ export default function Home() {
     return calculateControversialList(dailyDataState);
   }, [dailyDataState]);
 
-  // Effect to set default keyword (adjust logic based on new state structure)
   useEffect(() => {
     if (
       activeList === "controversial" &&
@@ -99,24 +98,19 @@ export default function Home() {
       const topControversialKeyword = controversialListState.data[0].keyword;
       if (keywordsListState.data.includes(topControversialKeyword)) {
         setSelectedKeyword(topControversialKeyword);
-      } else {
-        // Fallback: select the first keyword from the general list if top controversial isn't found
-        // This might happen if filtering removes the top controversial keyword
-        if (keywordsListState.data.length > 0) {
-          setSelectedKeyword(keywordsListState.data[0]);
-          console.warn(`Top controversial game '${topControversialKeyword}' not found in available keywords list. Selecting first available keyword.`);
-        } else {
-          console.warn("No keywords available to select as default.");
-        }
       }
     }
     // Reset keyword if it's no longer in the list (e.g., due to date change)
-    else if (selectedKeyword && !keywordsListState.loading && !keywordsListState.data.includes(selectedKeyword)) {
-      console.log(`Selected keyword '${selectedKeyword}' no longer in list. Resetting selection.`);
+    else if (
+      selectedKeyword &&
+      !keywordsListState.loading &&
+      !keywordsListState.data.includes(selectedKeyword)
+    ) {
+      console.log(
+        `Selected keyword '${selectedKeyword}' no longer in list. Resetting selection.`
+      );
       setSelectedKeyword(null);
-      // Optionally, set a new default here if desired
     }
-
   }, [activeList, controversialListState, keywordsListState, selectedKeyword]);
 
   return (
@@ -155,7 +149,7 @@ export default function Home() {
         <div className="lg:col-span-2 bg-gray-800 rounded-xl mb-2 lg:mb-0 h-full">
           <SentimentTimeSeriesChart
             chartState={chartState}
-            keyword={selectedKeyword || ''}
+            keyword={selectedKeyword || ""}
             drilldownSentiment={drilldownSentiment}
             chartHeight={280}
           />
@@ -165,7 +159,7 @@ export default function Home() {
         <div className="lg:col-span-1 bg-gray-800 rounded-xl h-full">
           <SentimentDistributionChart
             distributionState={distributionState}
-            keyword={selectedKeyword || ''}
+            keyword={selectedKeyword || ""}
             periodAverages={periodAveragesState.data?.[0] || null}
             selectedSentiment={drilldownSentiment}
             onSentimentSelect={setDrilldownSentiment}
@@ -213,11 +207,7 @@ export default function Home() {
           >
             <div>
               <SentimentList
-                title={getListTitle(
-                  "Top 20 Controversies",
-                  startDate,
-                  endDate
-                )}
+                title={getListTitle("Top 20 Controversies", startDate, endDate)}
                 listState={controversialListState}
                 metric="volatility"
                 colorClass="bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent"
