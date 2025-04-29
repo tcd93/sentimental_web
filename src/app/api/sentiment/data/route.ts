@@ -53,21 +53,24 @@ export async function GET(request: Request) {
     const query = `
         SELECT
             keyword,
-            sentiment,
             CAST(created_at AS DATE) AS date,
             AVG(sentiment_score_positive) AS avg_pos,
             AVG(sentiment_score_negative) AS avg_neg,
             AVG(sentiment_score_mixed) AS avg_mix,
             AVG(sentiment_score_neutral) AS avg_neutral,
-            COUNT(1) AS count
+            SUM(CASE WHEN sentiment = 'POSITIVE' THEN 1 ELSE 0 END) AS pos_count,
+            SUM(CASE WHEN sentiment = 'NEGATIVE' THEN 1 ELSE 0 END) AS neg_count,
+            SUM(CASE WHEN sentiment = 'MIXED' THEN 1 ELSE 0 END) AS mix_count,
+            SUM(CASE WHEN sentiment = 'NEUTRAL' THEN 1 ELSE 0 END) AS neutral_count,
+            COUNT(1) AS total_count
         FROM
             "${ATHENA_DB}"."${ATHENA_TABLE}"
         WHERE
             ${whereClauses.join(" AND \n            ")}
         GROUP BY
-            keyword, sentiment, CAST(created_at AS DATE)
+            keyword, CAST(created_at AS DATE)
         ORDER BY
-            keyword, sentiment, date;
+            keyword, date;
     `;
 
     const results = await queryAthena(query, DailySentimentDataSchema);

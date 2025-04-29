@@ -1,7 +1,7 @@
 import { DailySentimentData } from "@/lib/types/DailySentimentData";
 import { ListState } from "@/lib/types/ListState";
 import { Loader2 } from "lucide-react";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   CartesianGrid,
   Line,
@@ -11,16 +11,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { aggregateSentimentData } from "./aggregateSentimentData";
-
-interface TimeSeriesPoint {
-  day: string;
-  avg_pos: number | null;
-  avg_neg: number | null;
-  avg_mix: number | null;
-  avg_neutral: number | null;
-  count: number;
-}
 
 interface SentimentChartProps {
   dailyDataState: ListState<DailySentimentData>;
@@ -42,25 +32,11 @@ const SENTIMENT_COLORS: { [key: string]: string } = {
 const calculateTimeSeriesData = (
   data: DailySentimentData[],
   selectedKeyword: string
-): TimeSeriesPoint[] => {
-  const filteredData = data.filter((item) =>
+): DailySentimentData[] => {
+  return data.filter((item) =>
     selectedKeyword ? item.keyword === selectedKeyword : true
   );
-
-  const chartData: TimeSeriesPoint[] = aggregateSentimentData(
-    filteredData,
-    "date"
-  ).map((item) => ({
-    day: item.group_key,
-    avg_pos: item.avg_pos,
-    avg_neg: item.avg_neg,
-    avg_mix: item.avg_mix,
-    avg_neutral: item.avg_neutral,
-    count: item.count,
-  }));
-
-  return chartData;
-};
+}
 
 /**
  * Timeseries chart for sentiment data.
@@ -72,6 +48,11 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
   chartHeight = 280,
 }) => {
   const { data: dailyData, loading, error } = dailyDataState;
+
+  const data = useMemo(() => {
+    if (dailyData.length === 0 || !keyword) return [];
+    return calculateTimeSeriesData(dailyData, keyword);
+  }, [dailyData, keyword]);
 
   // Format the date for the X-axis tooltip/labels if needed (e.g., 'MMM D')
   const formatDate = (dateStr: string) => {
@@ -145,9 +126,6 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
         </div>
       </div>
     );
-
-  const data = calculateTimeSeriesData(dailyData, keyword);
-
   // --- Empty/No Data State ---
   if (!keyword || !data || data.length === 0) {
     return (
@@ -175,7 +153,7 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
   // Helper function to get dataKey from sentiment name
   const getDataKey = (
     sentiment: string
-  ): keyof Omit<TimeSeriesPoint, "day" | "count"> | null => {
+  ): keyof Omit<DailySentimentData, "keyword" | "date"> | null => {
     switch (sentiment.toUpperCase()) {
       case "POSITIVE":
         return "avg_pos";
@@ -201,7 +179,7 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#4B5563" />
             <XAxis
-              dataKey="day"
+              dataKey="date"
               tickFormatter={formatDate}
               stroke="#9CA3AF"
               tick={{ fontSize: 12 }}

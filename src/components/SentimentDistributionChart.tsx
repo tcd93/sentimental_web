@@ -1,7 +1,9 @@
+import { aggregateSentimentDataByKeyword } from "@/lib/types/Aggregators";
 import { DailySentimentData } from "@/lib/types/DailySentimentData";
 import { ListState } from "@/lib/types/ListState";
+import assert from "assert";
 import { Loader2 } from "lucide-react";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Cell,
   Pie,
@@ -14,8 +16,6 @@ import {
   NameType,
   ValueType,
 } from "recharts/types/component/DefaultTooltipContent";
-import { aggregateSentimentData } from "./aggregateSentimentData";
-import assert from "assert";
 
 interface SentimentDistributionChartProps {
   dailyDataState: ListState<DailySentimentData>;
@@ -39,7 +39,7 @@ const SENTIMENT_ORDER = ["POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"];
 
 interface DistributionPoint {
   sentiment: string;
-  avg_value: number | null;
+  avg_value: number;
   count: number;
 }
 
@@ -47,18 +47,13 @@ const calculateDistributionData = (
   data: DailySentimentData[],
   selectedKeyword: string
 ): DistributionPoint[] => {
-  const filteredData = data.filter((item) =>
-    selectedKeyword ? item.keyword === selectedKeyword : true
+  const aggregatedData = aggregateSentimentDataByKeyword(
+    data.filter((item) =>
+      selectedKeyword ? item.keyword === selectedKeyword : true
+    )
   );
 
-  if (filteredData.length === 0) {
-    return [];
-  }
-
-  // Aggregate the filtered data by keyword
-  const aggregatedData = aggregateSentimentData(filteredData, "keyword");
-  
-  // should be only one item in aggregatedData
+  // should be only one item in filteredData
   assert(
     aggregatedData.length === 1,
     "Expected exactly one item in aggregatedData"
@@ -98,6 +93,11 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
   chartHeight = 280, // Default height if not provided
 }) => {
   const { data: dailyData, loading, error } = dailyDataState;
+
+  const data = useMemo(() => {
+    if (dailyData.length === 0 || !keyword) return [];
+    return calculateDistributionData(dailyData, keyword);
+  }, [dailyData, keyword]);
 
   if (loading)
     return (
@@ -140,16 +140,10 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
           style={{ minHeight: chartHeight }}
           className="flex items-center justify-center w-full"
         >
-          <p className="text-gray-500">
-            Select a keyword to see distribution.
-          </p>
+          <p className="text-gray-500">Select a keyword to see distribution.</p>
         </div>
       </div>
     );
-
-
-  const data = calculateDistributionData(dailyData, keyword);
-
   // --- Empty/No Data State ---
   if (!keyword || !data || data.length === 0) {
     return (
@@ -171,22 +165,16 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
     );
   }
 
-  // --- Success State (Data available) ---
-
-  // Sort data according to the fixed order
   const sortedData = [...data].sort((a, b) => {
     const indexA = SENTIMENT_ORDER.indexOf(a.sentiment.toUpperCase());
     const indexB = SENTIMENT_ORDER.indexOf(b.sentiment.toUpperCase());
-    // Handle cases where sentiment might not be in the order list (put them last)
     if (indexA === -1) return 1;
     if (indexB === -1) return -1;
     return indexA - indexB;
   });
 
-  // Calculate total for percentage tooltip/label (use sortedData)
   const total = sortedData.reduce((sum, entry) => sum + entry.count, 0);
 
-  // Custom tooltip formatter
   const renderCustomTooltip = (props: TooltipProps<ValueType, NameType>) => {
     const { active, payload } = props;
     if (active && payload && payload.length) {
@@ -209,10 +197,7 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
           </p>
           <p>{`Count: ${entryPayload.count}`}</p>
           <p>{`Percent: ${percentage}%`}</p>
-          {/* Display average score if available */}
-          {avgScore !== null && avgScore !== undefined && (
-            <p>{`Avg Score: ${avgScore.toFixed(4)}`}</p>
-          )}
+          <p>{`Avg Score: ${avgScore.toFixed(4)}`}</p>
         </div>
       );
     }

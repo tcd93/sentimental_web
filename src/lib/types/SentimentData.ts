@@ -1,12 +1,10 @@
 import { z } from "zod";
 
 /**
- * Daily sentiment data for a specific keyword
- * Mapped from route `/api/sentiment/data`
+ * Aggregated from {@link DailySentimentDataSchema}
  */
-export const DailySentimentDataSchema = z.object({
+export const SentimentDataSchema = z.object({
   keyword: z.string(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // Expecting 'YYYY-MM-DD'
   avg_pos: z.number(),
   avg_neg: z.number(),
   avg_mix: z.number(),
@@ -18,4 +16,4 @@ export const DailySentimentDataSchema = z.object({
   /** total count of analyzed posts */
   total_count: z.number(),
 });
-export type DailySentimentData = z.infer<typeof DailySentimentDataSchema>;
+export type SentimentData = z.infer<typeof SentimentDataSchema>;
