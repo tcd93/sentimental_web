@@ -1,17 +1,7 @@
 import { useState, useEffect } from "react";
-import { DailySentimentData } from "@/lib/types/sentiment";
-import { ListState } from "@/lib/reducers/listReducer"; // Import existing ListState
+import { DailySentimentData } from "@/lib/types/DailySentimentData";
+import { ListState } from "@/lib/types/ListState";
 
-// Remove the local API_STATE definition
-/*
-export interface API_STATE<T> {
-    data: T;
-    loading: boolean;
-    error: string | null;
-}
-*/
-
-// Use ListState for the hook's return type and internal state
 export function useDailySentimentData(
   startDate: string,
   endDate: string

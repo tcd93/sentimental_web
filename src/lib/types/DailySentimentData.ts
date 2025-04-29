@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-// New Centralized Data Type
 export const DailySentimentDataSchema = z.object({
   keyword: z.string(),
+  sentiment: z.enum(["POSITIVE", "NEGATIVE", "MIXED", "NEUTRAL"]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // Expecting 'YYYY-MM-DD'
   avg_pos: z.number().nullable(),
   avg_neg: z.number().nullable(),
@@ -11,5 +11,3 @@ export const DailySentimentDataSchema = z.object({
   count: z.number(),
 });
 export type DailySentimentData = z.infer<typeof DailySentimentDataSchema>;
-
-// Removed old/redundant types

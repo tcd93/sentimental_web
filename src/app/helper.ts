@@ -5,6 +5,7 @@ import {
   GetQueryResultsCommand,
   QueryExecutionState,
   GetQueryResultsCommandOutput,
+  Row,
 } from "@aws-sdk/client-athena";
 import {
   ATHENA_OUTPUT_LOCATION,
@@ -45,7 +46,7 @@ export const setCachedData = async <T>(
  * @param schema - The Zod schema to parse the results against.
  * @param database - The database to query.
  * @param outputLocation - The location to store the query results.
-*/
+ */
 export const queryAthena = async <T>(
   query: string,
   schema: z.Schema<T>,
@@ -95,43 +96,70 @@ export const queryAthena = async <T>(
     );
   }
 
-  const getQueryResultsCmd = new GetQueryResultsCommand({ QueryExecutionId });
-  const results = await athenaClient.send(getQueryResultsCmd);
-  return parseAthenaResults(results, schema);
-}
+  // --- Fetch all results with pagination ---
+  const allRows: Row[] = [];
+  let nextToken: string | undefined = undefined;
 
-const parseAthenaResults = <T>(
-    results: GetQueryResultsCommandOutput,
-    schema: z.Schema<T>
-  ): T[] => {
-    const rows = results.ResultSet?.Rows ?? [];
-    if (rows.length < 2) {
-      return [];
-    }
-    if (!rows[0].Data) {
-      console.error("No data found in the first row");
-      return [];
-    }
-    if (rows[0].Data.length === 0) {
-      return [];
-    }
-  
-    // Get the column names
-    const columns = rows[0].Data.map((datum) => datum.VarCharValue);
-  
-    return rows.slice(1).map((row) => {
-      const raw_row_obj = row.Data?.reduce((obj, field, i) => {
-        const key = columns[i];
-        const value = field.VarCharValue;
-  
-        if (key) {
-          // Assign the value as string or null. Zod will handle coercion.
-          obj[key] = value ?? null;
-        }
-        return obj;
-      }, {} as { [key: string]: string | null });
-  
-      // Validate and coerce using the provided Zod schema
-      return schema.parse(raw_row_obj);
+  do {
+    const getQueryResultsCmd = new GetQueryResultsCommand({
+      QueryExecutionId,
+      NextToken: nextToken,
     });
-  };
+    const pageResults: GetQueryResultsCommandOutput = await athenaClient.send(
+      getQueryResultsCmd
+    );
+
+    if (pageResults.ResultSet?.Rows) {
+      const rowsToAdd =
+        nextToken === undefined
+          ? pageResults.ResultSet.Rows
+          : pageResults.ResultSet.Rows.slice(1);
+      allRows.push(...rowsToAdd);
+    }
+
+    nextToken = pageResults.NextToken;
+  } while (nextToken);
+  // --- End Fetch all results ---
+
+  return parseAthenaResults(allRows, schema);
+};
+
+const parseAthenaResults = <T>(rows: Row[], schema: z.Schema<T>): T[] => {
+  if (rows.length < 2) {
+    return [];
+  }
+  if (!rows[0].Data) {
+    console.error("No data found in the header row");
+    return [];
+  }
+  if (rows[0].Data.length === 0) {
+    return [];
+  }
+
+  const columns = rows[0].Data.map((datum) => datum.VarCharValue);
+
+  return rows.slice(1).map((row) => {
+    const raw_row_obj = row.Data?.reduce((obj, field, i) => {
+      const key = columns[i];
+      const value = field.VarCharValue;
+
+      if (key) {
+        if (value === undefined || value === null) {
+          obj[key] = null;
+        } else {
+          const n = Number(value);
+          obj[key] = !isNaN(n) ? n : value;
+        }
+      }
+      return obj;
+    }, {} as Record<string, string | number | null>);
+
+    try {
+      return schema.parse(raw_row_obj);
+    } catch (error) {
+      console.error("Error parsing Athena row:", error);
+      console.error("Raw row object:", raw_row_obj);
+      throw new Error(`Failed to parse row: ${JSON.stringify(raw_row_obj)}`);
+    }
+  });
+};

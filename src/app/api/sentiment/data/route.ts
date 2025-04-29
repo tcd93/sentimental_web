@@ -5,7 +5,7 @@ import {
 import {
   DailySentimentData,
   DailySentimentDataSchema,
-} from "@/lib/types/sentiment";
+} from "@/lib/types/DailySentimentData";
 import { jsonResponse } from "../../response";
 import { getCachedData, queryAthena, setCachedData } from "@/app/helper";
 
@@ -53,6 +53,7 @@ export async function GET(request: Request) {
     const query = `
         SELECT
             keyword,
+            sentiment,
             CAST(created_at AS DATE) AS date,
             AVG(sentiment_score_positive) AS avg_pos,
             AVG(sentiment_score_negative) AS avg_neg,
@@ -64,9 +65,9 @@ export async function GET(request: Request) {
         WHERE
             ${whereClauses.join(" AND \n            ")}
         GROUP BY
-            keyword, CAST(created_at AS DATE)
+            keyword, sentiment, CAST(created_at AS DATE)
         ORDER BY
-            keyword, date;
+            keyword, sentiment, date;
     `;
 
     const results = await queryAthena(query, DailySentimentDataSchema);

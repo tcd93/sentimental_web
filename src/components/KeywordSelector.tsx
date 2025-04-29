@@ -1,40 +1,44 @@
-"use client"
-
+import { Check, ChevronsUpDown } from "lucide-react"
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react" // Using lucide-react for icons
 
-import { cn } from "@/lib/utils" // Assuming you have a utility for classnames
-import { Button } from "@/components/ui/button" // Assuming you have a Button component
+import { Button } from "@/components/ui/button"
 import {
-  Command, 
-  CommandEmpty, 
-  CommandGroup, 
-  CommandInput, 
-  CommandItem, 
-  CommandList, 
-} from "@/components/ui/command" // Assuming you have Command components (often used with cmdk)
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover" // Assuming you have Popover components
-import { ListState } from '@/lib/reducers/listReducer'
+} from "@/components/ui/popover"
+import { ListState } from "@/lib/types/ListState"
+import { cn } from "@/lib/utils"
+import { DailySentimentData } from "@/lib/types/DailySentimentData"
 
 interface KeywordSelectorProps {
-  keywordsState: ListState<string>; // Replace separate props with ListState
+  dailyDataState: ListState<DailySentimentData>;
   selectedKeyword: string | null;
   onKeywordSelect: (keyword: string | null) => void;
 }
 
+const calculateKeywordsList = (
+  data: DailySentimentData[]
+): string[] => {
+  return [...new Set(data.map((item) => item.keyword))].sort();
+};
+
 export function KeywordSelector({
-  keywordsState, // Use keywordsState instead of separate props
+  dailyDataState,
   selectedKeyword,
   onKeywordSelect,
 }: KeywordSelectorProps) {
   const [open, setOpen] = React.useState(false)
-  const { data: keywords, loading, error } = keywordsState; // Add error to destructuring
+  const { data: dailyData, loading, error } = dailyDataState;
 
-  // If there's an error, show it in a disabled button
   if (error) {
     return (
       <Button
@@ -52,6 +56,8 @@ export function KeywordSelector({
       </Button>
     );
   }
+
+  const keywords = calculateKeywordsList(dailyData);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
