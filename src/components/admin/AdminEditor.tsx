@@ -97,6 +97,10 @@ export default function AdminEditor() {
       });
       if (res.ok) {
         dispatchStatus({ type: "SAVED" });
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          dispatchStatus({ type: "RESET" });
+        }, 3000);
         setConfigData((parsedData) => parsedData); // No revert/restore logic
       } else {
         const data = await res.json();
@@ -158,8 +162,14 @@ export default function AdminEditor() {
     handleCloseModal();
   }
 
-  if (status.loading)
-    return <div className="p-4 text-white">Loading config...</div>;
+  if (status.loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen w-full">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div className="text-white text-lg">Loading config...</div>
+      </div>
+    );
+  }
 
   const filteredKeywords =
     configData?.source[activeSource].filter(
@@ -228,13 +238,16 @@ export default function AdminEditor() {
           <div className="px-6 pb-6 flex space-x-4 items-center">
             <button
               onClick={handleSave}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-              // Save is always enabled for now
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:bg-gray-500 disabled:cursor-not-allowed"
+              disabled={status.saving}
             >
               {status.saving ? "Saving..." : "Save Changes"}
             </button>
             {status.error && (
               <div className="text-red-400 ml-4 text-sm">{status.error}</div>
+            )}
+            {status.success && (
+              <div className="text-green-400 ml-4 text-sm">Saved successfully!</div>
             )}
           </div>
         </div>
