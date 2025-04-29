@@ -6,8 +6,8 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 
-const BUCKET = "tcd93-sentimental-bucket";
-const KEY = "config/keywords_config.json";
+const BUCKET = process.env.AWS_S3_BUCKET!;
+const KEY = process.env.AWS_S3_CONFIG_FILE!;
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 

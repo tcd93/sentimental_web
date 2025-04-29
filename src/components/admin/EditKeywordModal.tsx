@@ -63,7 +63,7 @@ export default function EditKeywordModal({
         return RedditKeywordItemSchema.parse(updated);
       } else {
         const updated = { ...prev } as SteamKeywordItem;
-        if (field === "keyword") updated.keyword = value.trim();
+        if (field === "keyword") updated.keyword = value;
         else if (field === "steamTimeFilter") {
           updated.time_filter = value as typeof SteamTimeFilterEnum._type;
         } else if (field === "steamSort") {
