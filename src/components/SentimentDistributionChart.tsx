@@ -236,7 +236,6 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
               nameKey="sentiment"
               onClick={handlePieClick}
               className="cursor-pointer focus:outline-none focus:ring-0"
-              isAnimationActive={false}
             >
               {sortedData.map((entry, index) => (
                 <Cell
