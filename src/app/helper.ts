@@ -15,17 +15,13 @@ import {
   ATHENA_DB,
 } from "@/lib/config";
 import { athenaClient, delay } from "@/lib/awsClients";
-import { jsonResponse } from "@/app/api/response";
 import { z } from "zod";
 
 export const getCachedData = async <T>(cacheKey: string) => {
   const cachedData = await kv.get<T>(cacheKey);
   if (cachedData) {
     console.log(`Cache hit for key: ${cacheKey}`);
-    if (Array.isArray(cachedData)) {
-      return jsonResponse<T>({ data: cachedData });
-    }
-    return jsonResponse<T>({ data: [cachedData] });
+    return cachedData;
   }
   console.log(`Cache miss for key: ${cacheKey}`);
   return null;

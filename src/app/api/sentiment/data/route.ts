@@ -39,9 +39,9 @@ export async function GET(request: Request) {
 
   const cacheKey = `sentiment-daily-data-v1:from${startDate}-to${endDate}`;
 
-  const cachedData = await getCachedData<DailySentimentData>(cacheKey);
+  const cachedData = await getCachedData<DailySentimentData[]>(cacheKey);
   if (cachedData) {
-    return cachedData;
+    return jsonResponse({ data: cachedData });
   }
 
   try {
