@@ -1,6 +1,6 @@
+import { useDailyData } from "@/contexts/DailyDataProvider";
 import { aggregateSentimentDataByKeyword } from "@/lib/types/Aggregators";
 import { DailySentimentData } from "@/lib/types/DailySentimentData";
-import { ListState } from "@/lib/types/ListState";
 import assert from "assert";
 import { Loader2 } from "lucide-react";
 import React, { useMemo } from "react";
@@ -18,9 +18,7 @@ import {
 } from "recharts/types/component/DefaultTooltipContent";
 
 interface SentimentDistributionChartProps {
-  dailyDataState: ListState<DailySentimentData>;
-  keyword: string | null;
-  selectedSentiment: string | null;
+  drilldownSentiment: string | null;
   onSentimentSelect: (sentiment: string | null) => void;
   chartHeight?: number;
 }
@@ -45,18 +43,24 @@ interface DistributionPoint {
 
 const calculateDistributionData = (
   data: DailySentimentData[],
-  selectedKeyword: string
+  selectedKeyword: string | null
 ): DistributionPoint[] => {
-  const aggregatedData = aggregateSentimentDataByKeyword(
-    data.filter((item) =>
-      selectedKeyword ? item.keyword === selectedKeyword : true
-    )
-  );
+  if (!selectedKeyword) return [];
 
-  // should be only one item in filteredData
+  const filteredData = data.filter((item) => item.keyword === selectedKeyword);
+
+  if (filteredData.length === 0) {
+    console.warn(
+      `No data found for keyword "${selectedKeyword}" in calculateDistributionData`
+    );
+    return [];
+  }
+
+  const aggregatedData = aggregateSentimentDataByKeyword(filteredData);
+
   assert(
     aggregatedData.length === 1,
-    "Expected exactly one item in aggregatedData"
+    `Expected exactly one item in aggregatedData for keyword "${selectedKeyword}"`
   );
 
   const item = aggregatedData[0];
@@ -64,40 +68,38 @@ const calculateDistributionData = (
   return [
     {
       sentiment: "Positive",
-      avg_value: item.avg_pos,
+      avg_value: item.avg_pos ?? 0,
       count: item.pos_count ?? 0,
     },
     {
       sentiment: "Negative",
-      avg_value: item.avg_neg,
+      avg_value: item.avg_neg ?? 0,
       count: item.neg_count ?? 0,
     },
     {
       sentiment: "Mixed",
-      avg_value: item.avg_mix,
+      avg_value: item.avg_mix ?? 0,
       count: item.mix_count ?? 0,
     },
     {
       sentiment: "Neutral",
-      avg_value: item.avg_neutral,
+      avg_value: item.avg_neutral ?? 0,
       count: item.neutral_count ?? 0,
     },
   ];
 };
 
 const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
-  dailyDataState,
-  keyword,
-  selectedSentiment,
+  drilldownSentiment: selectedSentiment,
   onSentimentSelect,
-  chartHeight = 280, // Default height if not provided
+  chartHeight = 280,
 }) => {
+  const { dailyDataState, selectedKeyword } = useDailyData();
   const { data: dailyData, loading, error } = dailyDataState;
 
   const data = useMemo(() => {
-    if (dailyData.length === 0 || !keyword) return [];
-    return calculateDistributionData(dailyData, keyword);
-  }, [dailyData, keyword]);
+    return calculateDistributionData(dailyData, selectedKeyword);
+  }, [dailyData, selectedKeyword]);
 
   if (loading)
     return (
@@ -130,7 +132,7 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
       </div>
     );
 
-  if (!keyword)
+  if (!selectedKeyword)
     return (
       <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col items-center justify-center text-center">
         <h3 className="text-xl font-semibold mb-4 text-blue-300">
@@ -144,8 +146,8 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
         </div>
       </div>
     );
-  // --- Empty/No Data State ---
-  if (!keyword || !data || data.length === 0) {
+
+  if (!data || data.length === 0) {
     return (
       <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col items-center justify-center text-center">
         <h3 className="text-xl font-semibold mb-4 text-blue-300">
@@ -156,9 +158,7 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
           className="flex items-center justify-center w-full"
         >
           <p className="text-gray-500">
-            {!keyword
-              ? "Select a keyword to see distribution."
-              : `No distribution data available for "${keyword}".`}
+            {`No distribution data available for "${selectedKeyword}".`}
           </p>
         </div>
       </div>
@@ -204,16 +204,18 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
     return null;
   };
 
-  // Handle clicks on Pie slices
-  const handlePieClick = (data: DistributionPoint) => {
-    const clickedSentiment = data?.sentiment?.toUpperCase();
+  const handlePieClick = (
+    clickedData: DistributionPoint | { payload: DistributionPoint }
+  ) => {
+    const entryPayload =
+      "payload" in clickedData ? clickedData.payload : clickedData;
+    const clickedSentiment = entryPayload?.sentiment?.toUpperCase();
     if (!clickedSentiment) return;
 
-    // If clicking the already selected slice, deselect (reset drilldown)
     if (clickedSentiment === selectedSentiment?.toUpperCase()) {
       onSentimentSelect(null);
     } else {
-      onSentimentSelect(clickedSentiment); // Set drilldown to clicked sentiment
+      onSentimentSelect(clickedSentiment);
     }
   };
 
@@ -231,6 +233,8 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
               cy="50%"
               labelLine={false}
               innerRadius={40}
+              outerRadius={Math.min(100, chartHeight / 2 - 30)}
+              paddingAngle={1}
               fill="#8884d8"
               dataKey="count"
               nameKey="sentiment"
@@ -244,22 +248,26 @@ const SentimentDistributionChart: React.FC<SentimentDistributionChartProps> = ({
                     SENTIMENT_COLORS[entry.sentiment.toUpperCase()] ||
                     SENTIMENT_COLORS.UNKNOWN
                   }
+                  stroke={
+                    selectedSentiment &&
+                    entry.sentiment.toUpperCase() ===
+                      selectedSentiment.toUpperCase()
+                      ? "#FFFFFF"
+                      : "none"
+                  }
+                  strokeWidth={2}
                   opacity={
                     selectedSentiment &&
                     entry.sentiment.toUpperCase() !==
                       selectedSentiment.toUpperCase()
-                      ? 0.4
+                      ? 0.5
                       : 1
                   }
+                  style={{ transition: "opacity 0.2s ease-in-out" }}
                 />
               ))}
             </Pie>
-            <Tooltip
-              content={renderCustomTooltip}
-              allowEscapeViewBox={{ x: true, y: true }}
-              wrapperStyle={{ zIndex: 100 }}
-              isAnimationActive={false}
-            />
+            <Tooltip content={renderCustomTooltip} />
           </PieChart>
         </ResponsiveContainer>
       </div>

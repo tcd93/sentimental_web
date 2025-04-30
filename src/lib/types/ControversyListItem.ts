@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DailySentimentData } from "./DailySentimentData";
+import { SentimentData } from "./SentimentData";
 
 export const ControversyListItemSchema = z.object({
   keyword: z.string(),
@@ -11,7 +12,7 @@ export const ControversyListItemSchema = z.object({
 export type ControversyListItem = z.infer<typeof ControversyListItemSchema>;
 
 export function isControversyItem(
-  item: DailySentimentData | ControversyListItem
+  item: SentimentData | DailySentimentData | ControversyListItem
 ): item is ControversyListItem {
   return "score" in item && !("groupKey" in item);
 }

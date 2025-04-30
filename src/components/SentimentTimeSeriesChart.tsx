@@ -1,5 +1,5 @@
+import { useDailyData } from "@/contexts/DailyDataProvider";
 import { DailySentimentData } from "@/lib/types/DailySentimentData";
-import { ListState } from "@/lib/types/ListState";
 import { Loader2 } from "lucide-react";
 import React, { useMemo } from "react";
 import {
@@ -13,8 +13,6 @@ import {
 } from "recharts";
 
 interface SentimentChartProps {
-  dailyDataState: ListState<DailySentimentData>;
-  keyword: string | null;
   drilldownSentiment: string | null;
   chartHeight?: number;
 }
@@ -31,28 +29,25 @@ const SENTIMENT_COLORS: { [key: string]: string } = {
 
 const calculateTimeSeriesData = (
   data: DailySentimentData[],
-  selectedKeyword: string
+  selectedKeyword: string | null
 ): DailySentimentData[] => {
-  return data.filter((item) =>
-    selectedKeyword ? item.keyword === selectedKeyword : true
-  );
-}
+  if (!selectedKeyword) return [];
+  return data.filter((item) => item.keyword === selectedKeyword);
+};
 
 /**
  * Timeseries chart for sentiment data.
  */
 const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
-  dailyDataState,
-  keyword,
   drilldownSentiment,
   chartHeight = 280,
 }) => {
+  const { dailyDataState, selectedKeyword } = useDailyData();
   const { data: dailyData, loading, error } = dailyDataState;
 
   const data = useMemo(() => {
-    if (dailyData.length === 0 || !keyword) return [];
-    return calculateTimeSeriesData(dailyData, keyword);
-  }, [dailyData, keyword]);
+    return calculateTimeSeriesData(dailyData, selectedKeyword);
+  }, [dailyData, selectedKeyword]);
 
   // Format the date for the X-axis tooltip/labels if needed (e.g., 'MMM D')
   const formatDate = (dateStr: string) => {
@@ -70,11 +65,11 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
   // Generate title content (can be reused across states)
   const renderTitle = () => (
     <h3 className="text-xl font-semibold mb-4 text-blue-300 shrink-0 text-center">
-      {keyword
-        ? keyword
+      {selectedKeyword
+        ? selectedKeyword
             .split(" ")
             .map(
-              (word) =>
+              (word: string) =>
                 word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
             )
             .join(" ")
@@ -114,20 +109,7 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
       </div>
     );
 
-  if (!keyword)
-    return (
-      <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col items-center justify-center text-center">
-        {renderTitle()}
-        <div
-          style={{ minHeight: chartHeight }}
-          className="flex items-center justify-center w-full"
-        >
-          <p className="text-gray-500">Select a keyword to view sentiment trend.</p>
-        </div>
-      </div>
-    );
-  // --- Empty/No Data State ---
-  if (!keyword || !data || data.length === 0) {
+  if (!selectedKeyword)
     return (
       <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col items-center justify-center text-center">
         {renderTitle()}
@@ -136,9 +118,24 @@ const SentimentTimeSeriesChart: React.FC<SentimentChartProps> = ({
           className="flex items-center justify-center w-full"
         >
           <p className="text-gray-500">
-            {!keyword
+            Select a keyword to view sentiment trend.
+          </p>
+        </div>
+      </div>
+    );
+  // --- Empty/No Data State ---
+  if (!selectedKeyword || !data || data.length === 0) {
+    return (
+      <div className="bg-gray-800 shadow-lg rounded-xl p-6 h-full flex flex-col items-center justify-center text-center">
+        {renderTitle()}
+        <div
+          style={{ minHeight: chartHeight }}
+          className="flex items-center justify-center w-full"
+        >
+          <p className="text-gray-500">
+            {!selectedKeyword
               ? "Select a keyword and date range to view sentiment trend."
-              : `No timeseries data available for "${keyword}".`}
+              : `No timeseries data available for "${selectedKeyword}".`}
           </p>
         </div>
       </div>
