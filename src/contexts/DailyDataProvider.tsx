@@ -121,13 +121,46 @@ const useDailySentimentData = (
         );
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error ||
-              `API request failed with status ${response.status}`
-          );
+          let errorToThrow: Error;
+          const contentType = response.headers.get("content-type");
+
+          if (contentType && contentType.includes("application/json")) {
+            try {
+              const errorData = await response.json();
+              errorToThrow = new Error(
+                errorData?.error ||
+                  `API request failed with status ${response.status}`
+              );
+            } catch (jsonError) {
+              console.error("Failed to parse JSON error response:", jsonError);
+              errorToThrow = new Error(
+                `API request failed with status ${response.status}, and the JSON error response could not be parsed.`
+              );
+            }
+          } else {
+            // Handle non-JSON responses (e.g., HTML error page from Vercel timeout)
+            let errorText = `API request failed with status ${response.status}.`;
+            try {
+              const textResponse = await response.text();
+              // Limit the length of the text included in the error message
+              errorText += ` Server returned non-JSON response starting with: ${textResponse.substring(
+                0,
+                100
+              )}...`;
+              console.error("Received non-JSON error response:", textResponse);
+            } catch (textError) {
+              console.error(
+                "Failed to read error response as text:",
+                textError
+              );
+              errorText += " Could not read response body.";
+            }
+            errorToThrow = new Error(errorText);
+          }
+          throw errorToThrow;
         }
 
+        // Assuming response.ok is true, proceed to parse the successful JSON response
         const result = await response.json();
         if (!Array.isArray(result.data)) {
           console.error("API returned non-array data:", result.data);
